@@ -5,7 +5,7 @@ date: 2025-07-20T13:23:54+08:00
 image: 
 math: 
 license: 
-img: coscup.png
+image: coscup.png
 categories:
     - Coscup 2025
 tags:
@@ -14,7 +14,7 @@ tags:
     - Tracing
     - Perf
 hidden: false
-comments: false
+comments: true
 draft: false
 ---
 # Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析
