@@ -147,6 +147,7 @@ admin = "WuTa0209"
 repo = "WuTa0209.github.io"
 clientID = "Ov23lij78DRsoaL8R1yu"
 clientSecret = "5ab179141bce2450541712ea80b407edfbbd3efb"
+proxy = "https://wuta0209.hank20010209.workers.dev/?https://github.com/login/oauth/access_token"
 
 [comments.cusdis]
 host = ""
