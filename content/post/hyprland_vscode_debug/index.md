@@ -1,6 +1,6 @@
 ---
 title: "Hyprland VSCode 無法輸入中文解決"
-description: 
+description: "Hyprland VSCode 無法輸入中文解決"
 date: 2025-07-20T12:27:11+08:00
 image: 
 math: 
@@ -8,7 +8,7 @@ license:
 categories:
     - Hyprland
 hidden: false
-comments: false
+comments: true
 draft: false
 ---
 ## 修改 /etc/environment 以及 /etc/profile

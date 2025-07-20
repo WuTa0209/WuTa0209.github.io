@@ -1,6 +1,6 @@
 ---
 title: "Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析"
-description: 
+description: "Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析"
 date: 2025-07-20T13:23:54+08:00
 image: 
 math: 
@@ -14,7 +14,7 @@ tags:
     - Tracing
     - Perf
 hidden: false
-comments: false
+comments: true
 draft: false
 ---
 # Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析
