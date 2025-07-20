@@ -11,7 +11,7 @@ tags:
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
 draft: false
 comments: true
-summary = "Welcome Page"
+summary: "Welcome Page"
 ---
 
 Hello World. This is your first post. Edit or delete it, then start writing!
