@@ -80,9 +80,9 @@ enabled = true
 provider = "disqus"
 
 [comments.disqusjs]
-shortname = ""
-apiUrl = ""
-apiKey = ""
+shortname = "" # Required: Your Disqus shortname
+apiUrl = "" # Required: The API URL of your DisqusJS instance
+apiKey = "" # Required: The API key of your DisqusJS instance
 admin = ""
 adminLabel = ""
 

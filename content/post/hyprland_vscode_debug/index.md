@@ -5,6 +5,8 @@ date: 2025-07-20T12:27:11+08:00
 image: 
 math: 
 license: 
+categories:
+    - Hyprland
 hidden: false
 comments: true
 draft: false
