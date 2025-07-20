@@ -5,6 +5,7 @@ date: 2025-07-20T13:23:54+08:00
 image: 
 math: 
 license: 
+img: coscup.png
 categories:
     - Coscup 2025
 tags:
