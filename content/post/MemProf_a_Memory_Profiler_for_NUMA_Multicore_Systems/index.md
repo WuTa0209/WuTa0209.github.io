@@ -1,5 +1,5 @@
 ---
-title: "MemProf_a_Memory_Profiler_for_NUMA_Multicore_Systems"
+title: "MemProf: A Memory Profiler for NUMA Multicore Systems"
 description: 
 date: 2025-07-20T13:30:35+08:00
 math: 
