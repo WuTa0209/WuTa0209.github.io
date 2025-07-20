@@ -1,3 +1,67 @@
 /*
     You can add your own custom styles here.
 */
+
+
+   .file-tree {
+    padding: 0 0 .5rem;
+    color: var(--c-link, #4a4f66);
+    line-height: 1.55;
+  }
+  
+  .tree-root,
+  .tree-children {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  /* -------- Section / Category (folder) -------- */
+  .tree-node { margin: .4rem 0; }
+  
+  .tree-node > details > summary {
+  display: flex;          
+  align-items: center;   
+}
+
+
+.tree-node > details > summary::before {
+  content: '›';
+  font-size: 2em;      
+  line-height: 1;         
+  width: 1.25em;
+  display: inline-flex;   
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+  transition: transform .2s ease;
+}
+
+
+.tree-node > details[open] > summary::before {
+  transform: rotate(90deg);
+}
+  
+  .tree-label {
+    color: inherit;
+    text-decoration: none;
+  }
+  .tree-label:hover { color: var(--c-link-hover, #1a1e3b); }
+  
+  /* -------- Leaf pages -------- */
+  .tree-leaf a {
+    display: block;
+    padding: .25rem 0 .25rem 1.85rem;
+    text-decoration: none;
+    color: var(--c-text, #5c5f6e);
+    transition: color .15s ease;
+  }
+  .tree-leaf a:hover { color: var(--c-link-hover, #1a1e3b); }
+  
+  .tree-leaf a.active {
+    font-weight: 700;
+    color: var(--c-link-hover, #1a1e3b);
+  }
+  
+  details > summary::-moz-list-bullet { font-size: 0; }
+  
