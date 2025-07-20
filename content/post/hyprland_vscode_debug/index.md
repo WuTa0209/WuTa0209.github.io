@@ -8,7 +8,7 @@ license:
 categories:
     - Hyprland
 hidden: false
-comments: true
+comments: false
 draft: false
 ---
 ## 修改 /etc/environment 以及 /etc/profile

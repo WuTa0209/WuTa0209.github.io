@@ -14,7 +14,7 @@ tags:
     - Tracing
     - Perf
 hidden: false
-comments: true
+comments: false
 draft: false
 ---
 # Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析
