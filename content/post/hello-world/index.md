@@ -9,7 +9,7 @@ categories:
 tags:
     - Example Tag Tag
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
-draft: false
+draft: true
 comments: true
 summary: "Welcome Page"
 ---
