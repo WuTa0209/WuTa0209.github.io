@@ -1,0 +1,1048 @@
+<!doctype html><html lang=en-us dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析"><title>Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析</title><link rel=canonical href=https://wuta0209.github.io/p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/><link rel=stylesheet href=/scss/style.min.b444eddcf1719d1f4d84fd8b80538f465ea7ac61e7fba66d5db575b7879ab92f.css><meta property='og:title' content="Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析"><meta property='og:description' content="Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析"><meta property='og:url' content='https://wuta0209.github.io/p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/'><meta property='og:site_name' content='WuTa Blog'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:tag' content='MGLRU'><meta property='article:tag' content='Linux Kernel'><meta property='article:tag' content='Tracing'><meta property='article:tag' content='Perf'><meta property='article:published_time' content='2025-07-20T13:23:54+08:00'><meta property='article:modified_time' content='2025-07-20T13:23:54+08:00'><meta property='og:image' content='https://wuta0209.github.io/p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/coscup.png'><meta name=twitter:title content="Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析"><meta name=twitter:description content="Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://wuta0209.github.io/p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/coscup.png'><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切換選單>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu_1c6ae99766100603.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>🍥</span></figure><div class=site-meta><h1 class=site-name><a href=/>WuTa Blog</a></h1><h2 class=site-description>The best learning is trying to teach.</h2></div></header><ol class=menu-social><li><a href=https://github.com/WuTa0209 target=_blank title=GitHub rel=me><svg class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href=https://ithelp.ithome.com.tw/users/20138181 target=_blank title=ITHome rel=me><svg class="icon icon-tabler icon-tabler-brand-twitter" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M22 4.01c-1 .49-1.98.689-3 .99-1.121-1.265-2.783-1.335-4.38-.737S11.977 6.323 12 8v1c-3.245.083-6.135-1.395-8-4 0 0-4.182 7.433 4 11-1.872 1.247-3.739 2.088-6 2 3.308 1.803 6.913 2.423 10.034 1.517 3.58-1.04 6.522-3.723 7.651-7.742a13.84 13.84.0 00.497-3.753C20.18 7.773 21.692 5.25 22 4.009z"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>Home</span></a></li><li><a href=/archives/><svg class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>Archives</span></a></li><li><a href=/search/><svg class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>Search</span></a></li><li><a href=/links/><svg class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>Links</span></a></li><li><a href=/about/><svg class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
+<span>AboutMe</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>夜晚模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目錄</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#大綱>大綱</a></li><li><a href=#簡介什麼是-page-replacement>簡介，什麼是 page replacement?</a><ol><li><a href=#詳細關於-cpu-記憶體存取機制>詳細關於 CPU 記憶體存取機制</a><ol><li><a href=#cpu-查詢-tlb>CPU 查詢 TLB</a></li><li><a href=#關於-page-table>關於 Page Table</a></li><li><a href=#關於-page-fault>關於 Page Fault</a></li><li><a href=#關於-page-replacement>關於 page replacement</a></li></ol></li><li><a href=#關於-page-reclaim>關於 Page Reclaim</a></li></ol></li><li><a href=#回顧關於-activeinactive-lru>回顧，關於 Active/Inactive LRU</a><ol><li><a href=#inactive-active-lru-list-的運作>Inactive-Active LRU list 的運作:</a></li><li><a href=#雙-lru-list-設計目的>雙 LRU list 設計目的:</a></li><li><a href=#理想情況下-active-inactive-lru-表現>理想情況下 Active-Inactive LRU 表現</a></li><li><a href=#active-inactive-lru-可能的問題>Active-Inactive LRU 可能的問題</a><ol><li><a href=#補充-關於-rmap>補充: 關於 Rmap</a></li></ol></li></ol></li><li><a href=#追蹤關於追蹤-kernel-裡特定子系統>追蹤，關於追蹤 kernel 裡特定子系統</a><ol><li><a href=#使用-stress-ng-製造記憶體壓力>使用 <code>stress-ng</code> 製造記憶體壓力</a></li><li><a href=#使用測試程式搭配-cgroup-限制記憶體資源>使用測試程式，搭配 cgroup 限制記憶體資源</a></li><li><a href=#關於-flamegraph-與-dot-graph>關於 flamegraph 與 dot-graph</a></li></ol></li><li><a href=#mglru-描述>MGLRU 描述</a><ol><li><a href=#geneartion-概念>Geneartion 概念</a></li><li><a href=#路徑1-aging-機制>路徑1. Aging 機制</a></li><li><a href=#路徑2-evict>路徑2. Evict</a><ol><li><a href=#關鍵函式-try_to_shrink_lruvec-分析>關鍵函式 <code>try_to_shrink_lruvec</code> 分析</a></li></ol></li><li><a href=#pid-控制迴路與-anonfile-backed-page-平衡>PID 控制迴路與 anon/file-backed page 平衡</a></li><li><a href=#關於-bloom-filter-降低-rmap-開銷>關於 Bloom Filter 降低 Rmap 開銷</a></li></ol></li><li><a href=#測試環境>測試環境</a><ol><li><a href=#使用-mglru-debugfs>使用 MGLRU debugfs</a></li><li><a href=#使用-kprobe-觀測-funciton-行為>使用 kprobe 觀測 funciton 行為</a></li><li><a href=#靜態追蹤>靜態追蹤</a></li><li><a href=#動態追蹤>動態追蹤</a><ol><li><a href=#使用-kernel-module>使用 kernel module</a></li><li><a href=#使用-bpftrace>使用 bpftrace</a></li></ol></li></ol></li><li><a href=#結論>結論</a></li><li><a href=#reference>Reference</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/><img src=/p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/coscup_hu_840e27a74180904f.png srcset="/p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/coscup_hu_840e27a74180904f.png 800w, /p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/coscup_hu_b98298abfdda454f.png 1600w" width=800 height=533 loading=lazy alt="Featured image of post Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析"></a></div><div class=article-details><header class=article-category><a href=/categories/coscup-2025/>Coscup 2025</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/p/coscup-2025-lets-tracing-linux-kernel-mglru-%E5%AF%A6%E4%BD%9C%E8%88%87%E5%88%86%E6%9E%90/>Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析</a></h2><h3 class=article-subtitle>Coscup 2025: Let's Tracing Linux Kernel, MGLRU 實作與分析</h3></div><footer class=article-time><div><svg class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Jul 20, 2025</time></div><div><svg class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>閱讀時間: 27 分鐘</time></div></footer></div></header><section class=article-content><h1 id=coscup-2025-lets-tracing-linux-kernel-mglru-實作與分析>Coscup 2025: Let&rsquo;s Tracing Linux Kernel, MGLRU 實作與分析</h1><h2 id=大綱>大綱</h2><ul><li>簡介，什麼是 page replacement?</li><li>回顧，關於 Active/Inactive LRU</li><li>追蹤，關於追蹤 kernel的 page replacement</li><li>介紹 MGLRU</li><li>MGLRU call chain 解釋<ul><li>Aging</li><li>Eviction</li><li>PID 控制</li><li>Rmap 優化</li></ul></li><li>觀測 MGLRU 行為</li><li>結論</li></ul><h2 id=簡介什麼是-page-replacement>簡介，什麼是 page replacement?</h2><p>首先回顧 Process 存取記憶體的流程</p><ul><li>CPU 存取記憶體: 當程式嘗試存取記憶體時，CPU 會先去查詢 TLB，如果 TLB Miss，則查詢 Page Table</li><li>查詢 Page Table: 如果發現 Page Table 沒有該虛擬記憶體對應到的實體記憶體映射，或是映射標記為無效，則 CPU 會觸發 Page Fault，產生 exception，並進入 Page Fault Handler</li><li>這時候有幾個選擇，如果 page 已經在記憶體，但沒有映射到目前 Process 的記憶體空間，則只需要更新映射就可以。如果 page 不在記憶體，需要從硬碟載入。如果 page 都不可使用，則系統需要選擇一個策略將目前實體記憶體的 page 進行替換，將某個 page 換出到次級記憶體，如 CXL, swap 等等，以釋放出空間給新的 page 使用，這時候可能使用 LRU 或是 MGLRU 等等策略</li></ul><p>對於記憶體，主要問題有兩個，一個是什麼樣的物件應該保留在 cache 中，這個由 page replacement 策略決定，像是 MGLRU，而另一個議題是如何在 cache 中放入更多的物件，關於這部份近期的討論為 zram，不過我們會將重點放在 MGLRU。</p><h3 id=詳細關於-cpu-記憶體存取機制>詳細關於 CPU 記憶體存取機制</h3><p>當程式嘗試存取記憶體 (虛擬記憶體) 時，會進行以下</p><h4 id=cpu-查詢-tlb>CPU 查詢 TLB</h4><p>確認虛擬記憶體地址是對應到哪一個實體記憶體地址</p><ul><li>TLB 查詢: CPU 先查詢 TLB，TLB 裡面儲存最近使用過得虛擬記憶體到實體記憶體之間的映射關係</li><li>TLB Hit: 如果在 TLB 中找到對應的映射，發生 TLB hit，則 CPU 直接使用該實體記憶體來存取記憶體</li><li>TLB Miss: 如果 TLB 中沒有找到對應的映射，則 CPU 需要先查詢主記憶體中的 Page Table 來獲取實體記憶體，這時候會需要進行 Page Table Walk</li></ul><p>得到實體記憶體地址後，到 CPU cache 中查詢是否有實體記憶體地址對應的資料</p><ul><li>CPU Cache 檢查: CPU 首先檢查其內部 Cache，L1, L2, L3 Cache，如果資料已經被快取，則會發生 cache hit，直接使用該資料</li><li>Cache Miss: 如果 Cache 中沒有需要的資料，會發生 Cache miss，CPU 需要從主記憶體中讀取資料</li></ul><h4 id=關於-page-table>關於 Page Table</h4><p>Page Table 中儲存虛擬記憶體到實體記憶體之間的映射關係，最後一層為 PTE (Page Table Entry)，包含以下幾個欄位</p><ul><li>P (Present Flag): 表示該 page 是否位於實體記憶體中</li><li>R/W (Read/Write Flag): 表示該 page 的讀寫權限</li><li>A (Accessed Flag): 表示 Page 是否被存取過</li><li>D (Dirty Flag): 表示 Page 是否被修改過</li></ul><h4 id=關於-page-fault>關於 Page Fault</h4><p>當 Page Table 中沒有找到有效的映射，或是映射被標記為無效時，又或者是因為缺少權限等，CPU 會產生 Page Fault Exception，控制權會轉交給 Page Fault Handler，Page Fault 可以分成以下幾種類型</p><ul><li>Minor Page Fault
+當 process 存取虛擬記憶體對應到的 page 已經存在於物理記憶體，但是尚未建立有效的映射到 Process Page Table，這時後會觸發 Minor Page Fault，這時候不需要硬碟 I/O，只需要更新 page table 的映射或是權限即可恢復執行<ul><li>常見的為 malloc 中的 lazy allocation，CPU 發現虛擬記憶體地址沒有對應的實體 page frame，這時 kernel 分配 page frame 並更新 PTE，接著恢復程式執行，不需要硬碟 I/O</li><li>Copy-On-Write (COW): 共享 page 首次寫入時觸發 copy</li><li>動態函式庫首次載入時，如果其 page 已經存在於 page cache，則會觸發 Minor Page Fault，kernel 只需要更新 page table 的映射，映射到 Process address space</li></ul></li><li>Major Page Fault:
+當所需的 page 不在實體記憶體中，需要從次級記憶體，如硬碟, zswap, zram 等載入時，會發生 Major Page Fault，這種 Page Fault 處理需要消耗更多的時間，因為涉及 I/O 操作<ul><li>從 zram 或是 swap 載入資料</li></ul></li><li>Invalid Page Fault:
+當 Process 存取的記憶體地址不在 Process 的虛擬記憶體空間中，或是違反存取權限，會發生 Invalid Page Fault。</li></ul><h4 id=關於-page-replacement>關於 page replacement</h4><p>當系統中 free page list 沒有足夠的 free page frame，這時候需要啟動 page replacement 機制。作業系統會根據以下策略選擇 victim page，並進行 eviction 操作，常見策略包含以下</p><ul><li>LRU: 替換最久沒有使用的 Page</li><li>Clock / Second-Chance: 硬體成本較低的近似 LRU</li><li>MGLRU (Multi-Generational LRU): 自 Linux Kernel 6.1 之後引入的策略，將 page 根據存活週期以及 hot, cold 分成多個 generation</li></ul><p>整理以上，我們知道 page replacement 會在兩個情境下觸發</p><ul><li>記憶體壓力大時 (background reclaim): 當系統監測到目前記憶體壓力大時，如空閒記憶體空間低於某個特定水位，<code>kswapd</code> 會被喚醒，主動回收 page 維持系統可用的記憶體空間，主動選出哪一些 page 為 cold page 這部份會需要 page replacement 邏輯</li><li>由 page fault 觸發 (direct reclaim): 當發生 Major Page Fault，需要分配 page frame 時，如果 free page frame 不足，則會同步啟動 page replacement 機制，由 page fault handler 直接 evict 現有的 page，釋放空間給新的 page 使用</li></ul><h3 id=關於-page-reclaim>關於 Page Reclaim</h3><p>在上面 Major Page Fault 中，提到當沒有足夠 free page frame 會需要啟動 page replacement 機制，Linux 會啟動 Page 回收機制，具體行為是由 (<code>kswapd</code> 或直接由 page fault handler 呼叫 <code>shrink_node()</code>) 嘗試釋放 page frame。回收時會根據 page 屬於的 LRU 層級，從 cold 資料優先選擇 victim page</p><ul><li>LRU page 分類 (會將 anon page 與 file-backed page 分開進行管理)<ul><li><code>inactive</code> list: 使用頻率低的 page，優先被回收</li><li><code>active</code> list: 近期有被存取的 page，回收之前</li><li>MGLRU: 將 page 更細分成多個 generation</li></ul></li></ul><p>如果記憶體壓力過大，<code>kswapd</code> 無法即時釋放得到足夠多的 free page frame，則會呼叫 direct reclaim，或是進行 memory compaction，合併可用的 free page frame，如果還是無法分配，則可能導致 OOM (Out-of-Memory) 機制觸發</p><h2 id=回顧關於-activeinactive-lru>回顧，關於 Active/Inactive LRU</h2><p>就是把 LRU 分成兩個 list，分別為 active list 和 inactive list，然後 anon page 和 file-backed page 互相獨立，再加上 unevictable page list，總共有 5 個 list</p><ul><li>Inactive LRU list: 新載入或是剛剛使用的 page 一開始放入 Inactive list 中 (這一些 page 處於未活躍狀態)</li><li>Active LRU list: 如果某個 page 在 Inactive list 中再次被存取 (該 page 第二次被使用)，則該 page 會被 promote 到 Active list，並且被標記成 Active page。Active LRU list 中的 page 表示最近常用或是 hot page</li></ul><p>5 個 list 可以在 Linux Kernel 原始碼中看到</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>enum</span> <span class=n>lru_list</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>LRU_INACTIVE_ANON</span> <span class=o>=</span> <span class=mi>0</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=n>LRU_ACTIVE_ANON</span> <span class=o>=</span> <span class=mi>1</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=n>LRU_INACTIVE_FILE</span> <span class=o>=</span> <span class=mi>2</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=n>LRU_ACTIVE_FILE</span> <span class=o>=</span> <span class=mi>3</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=n>LRU_UNEVICTABLE</span> <span class=o>=</span> <span class=mi>4</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=n>NR_LRU_LISTS</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>而這一些 list 會存放在 lruvec 中</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>struct</span> <span class=n>lruvec</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=n>list_head</span> <span class=n>lists</span><span class=p>[</span><span class=n>NR_LRU_LISTS</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=p>...</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>新的 page 預設會放入 Inactive LRU，當該 page 再次存取之後才會移動到 Active LRU</li><li>記憶體開始出現壓力之後會進行 Eviction，Eviction 的行為是從 Inactive LRU 的末端開始回收</li><li>如果 Inactive LRU 中 page 數量比較低，則從 Active LRU 尾端開始移動 page 到 Inactive LRU</li></ul><h3 id=inactive-active-lru-list-的運作>Inactive-Active LRU list 的運作:</h3><p>當系統記憶體充足時，page 可以在兩個 LRU list 中移動。如果出現記憶體壓力，有 page 需要進行 Evict (Eviction: 將 page 從記憶體中移除)，Kernel 會從 Inactive LRU list 的末端開始回收不常使用的 page。這意味著只使用一次的那一些 page 會被優先淘汰，而 Active LRU list 中的 page 會被保留。</p><p>如果 Inactive LRU list 長度太短，不足以提供 page 回收，則這時候會從 Active LRU list 末端選出一些 page 進行 demote 到 Inactive LRU list，增加 kernel 可以回收的 page 數量。</p><h3 id=雙-lru-list-設計目的>雙 LRU list 設計目的:</h3><p>這樣設計的核心概念是避免單次存取的 page 去干擾 working set，假想一下，如果只有一個 LRU list，由於 list 大小有限 (隱含 cache 大小有限)，那些只存取一次的 page 很有可能會把頻繁存取的 page 給擠出 LRU list，對整個程式的 working set 造成干擾。Active LRU list 相當於 working set 的保護區，Inactive LRU list 則是容納最近沒有重複使用的 page。</p><p>雙 list 可以增加他的狀態表示數量 (包含 timestamp)，只有單 list，可以表示 hot/cold/dirty</p><p>對於掃描模式，雙 list 可以讓他只污染到 inactive list (不過這部份要看 promote 邏輯)</p><p>2Q lRU 與 active/inactive 是一樣的，MGLRU 動機: 為了提昇鑑別度，只有分兩層可能要掃描很久</p><p>:::info
+working set 定義: 指一個應用程式在一段時間內正常執行所需要的時常存取的 page，也就是 hot page 所構成的集合
+:::</p><h3 id=理想情況下-active-inactive-lru-表現>理想情況下 Active-Inactive LRU 表現</h3><p>理想況下我們希望 Active-Inactive LRU 能夠很好的去避免那一些一次存取的 page 對一個應用程式的 working set 造成干擾。也就是 working set 中的 page 不會被 evict，我們希望有一個足夠長的 Inactive LRU 來避免對 working set 的干擾。</p><p>舉一個例子，一個應用程式的 working set 大小為 6 個 page，而 Inactive LRU 長度為 8，接著開始存取 page，page 依序進入到 Inactive LRU，接著我們第二次存取 page，由於 Inactive LRU 長度大於 6，所以所有 page 都留在記憶體中，最終這一些 page 都可以被 promote 到 active list 中，也就是整個應用程式的 working set 順利保留在記憶體中。</p><h3 id=active-inactive-lru-可能的問題>Active-Inactive LRU 可能的問題</h3><p>Active-Inactive LRU 問題在理想情況下可以保護 working set，但在實際情況下存在以下不足</p><ul><li>Rmap 開銷問題: 每次在回收或是檢查 page 的時候都需要通過 Rmap 找到相關的 page table entries，要知道這個 page 是被哪一些 process 所使用，這對 CPU 有著莫大的開銷</li><li>page 熱度探測: 必須等待該 page 再次被存取 (產生 page fault) 才能判斷該 page 為 hot page 並將其躍遷到 Active LRU list</li><li>分類簡單: 只有 Inactive/Active，也就是 page 不是 hot 就是 cold，分類上不夠細緻</li></ul><p>上面的問題在非理想情況下 working set 可能會受到很大的影響，無法有效的保留在記憶體中，例如 working set 中 page 存取相對距離長，距離超過 Inactive LRU list 的大小，在 Active/Inactive LRU list 中可能會出現頻繁將 page 換出換入的情況 (Thrashing)。</p><p>為了解決上面的問題，希望有個演算法能夠減少 Rmap 開銷並且提供更細緻的分類，為此，MGLRU 在 Linux Kernel 6.1 版正式引入</p><h4 id=補充-關於-rmap>補充: 關於 Rmap</h4><p>Rmap 為 Linux Kernel 中用於追蹤 Page Frame 被哪一些虛擬記憶體地址映射的機制，核心功能為以下</p><ul><li>反向查詢，給定一個 Page Frame，找出所有映射他的虛擬記憶體地址，也就是該 Page Frame 的使用情況，過程中需要遍歷 Process 的 Page Table</li><li>在 page 回收或是遷移時，需要更新所有相關 Process 的 Page Table，確保虛擬記憶體地址和實體記憶體地址之間的一致性</li></ul><p>Rmap 在 Page Replacement 中通常會在以下兩個情況下觸發</p><ul><li>Page Reclaim: 當記憶體壓力大時，需要回收不常使用的 page，這時後會使用 Rmap 來找到哪一些 Process 正在使用該 Page Frame。接著會去更改這一些 Process 的 Page Table，移除這一些 Process 對於 Page Frame 的映射，讓 Page Frame 可以被釋放</li><li>Page Migration: 當需要進行 Page Migration，例如將 Page 移動到其他 NUMA 節點上面優化資料存取，這時候 Rmap 會用來更新所有映射該 Page Frame 的 Process 的 Page Table 中虛擬記憶體地址，使其指向到 Page Frame 新的位置</li></ul><p>當 Kernel 需要回收一個 page 時，需要執行以下操作</p><ol><li>藉由 page replacement 機制選出 Victim Page，通常這個 Page 為 Cold Page</li><li>接著檢查 Page 狀態，如果是 Dirty 需要 write-back，如果是共享 Page，需要更新該 Page 關聯的所有 Process 的 Page Table</li><li>接著需要清除該 Page 相關的所有 PTE 中 Present 標誌，表示該 Page 已經不在記憶體中</li></ol><p>Rmap 在上面共享 page 處理以及存取訊息蒐集時都需要進行對應呼叫</p><ol><li>如果 Page Frame 被多的 Process 共享，需要通過 Rmap 找到所有相關 PTE 並更新</li><li>檢查 PTE 的 Accessed, Dirty 等標記，輔助判斷 Page 的熱度</li></ol><h2 id=追蹤關於追蹤-kernel-裡特定子系統>追蹤，關於追蹤 kernel 裡特定子系統</h2><p>根據我們上面的推論，MGLRU 的整個流程會在兩個情況觸發</p><ul><li>當 page fault 發生時</li><li>當記憶體壓力大時，觸發 swap 機制時</li></ul><p>也就是我們可以嘗試製造記憶體壓力大的場景，喚醒 <code>kswapd</code> 觸發 MGLRU 或是 LRU 的回收機制，具體可以使用以下三種作法</p><ul><li>使用 <code>stress-ng</code> 製造記憶體壓力</li><li>使用特定 workload，接著使用 <code>cgroup</code> 限制其能夠使用的記憶體資源</li><li>修改開機的 kernel-parameter，更改系統可以使用的記憶體大小，接著執行正常 workload</li></ul><p>我們可以先使用 perf 去抓取 workload 期間的系統 call stack，得到 perf.data，接著對這個資料進行分析，得知 kernel 裡面某個 function 的執行流程，如 mglru</p><h3 id=使用-stress-ng-製造記憶體壓力>使用 <code>stress-ng</code> 製造記憶體壓力</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ stress-ng --vm <span class=m>4</span> --vm-bytes 123G --vm-keep --timeout 30s
+</span></span></code></pre></td></tr></table></div></div><h3 id=使用測試程式搭配-cgroup-限制記憶體資源>使用測試程式，搭配 cgroup 限制記憶體資源</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>size_t</span> <span class=n>size</span> <span class=o>=</span> <span class=mi>110</span> <span class=o>*</span> <span class=n>GB</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=o>*</span><span class=n>buffer</span> <span class=o>=</span> <span class=nb>NULL</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>size_t</span> <span class=n>pagesize</span> <span class=o>=</span> <span class=nf>get_page_size</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>ret</span> <span class=o>=</span> <span class=nf>posix_memalign</span><span class=p>(</span><span class=o>&amp;</span><span class=n>buffer</span><span class=p>,</span> <span class=n>pagesize</span><span class=p>,</span> <span class=n>size</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>FILE</span> <span class=o>*</span><span class=n>fp</span> <span class=o>=</span> <span class=nf>fopen</span><span class=p>(</span><span class=s>&#34;va_pa_map.txt&#34;</span><span class=p>,</span> <span class=s>&#34;w&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>ret</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;posix_memalign failed: %s</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=nf>strerror</span><span class=p>(</span><span class=n>ret</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>buffer</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>perror</span><span class=p>(</span><span class=s>&#34;malloc&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;Allocating and touching 110 GB...</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>volatile</span> <span class=kt>unsigned</span> <span class=kt>long</span> <span class=kt>long</span> <span class=n>counter</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kt>size_t</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>size</span><span class=p>;</span> <span class=n>i</span> <span class=o>+=</span> <span class=n>pagesize</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>counter</span><span class=o>++</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>volatile</span> <span class=kt>char</span> <span class=o>*</span><span class=n>ptr</span> <span class=o>=</span> <span class=p>(</span><span class=kt>char</span> <span class=o>*</span><span class=p>)</span><span class=n>buffer</span> <span class=o>+</span> <span class=n>i</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=o>*</span><span class=n>ptr</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span>  <span class=c1>// touch page
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>asm</span> <span class=k>volatile</span><span class=p>(</span><span class=s>&#34;&#34;</span> <span class=o>:::</span> <span class=s>&#34;memory&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=kt>uintptr_t</span> <span class=n>va</span> <span class=o>=</span> <span class=p>(</span><span class=kt>uintptr_t</span><span class=p>)</span><span class=n>ptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=kt>uint64_t</span> <span class=n>pa</span> <span class=o>=</span> <span class=nf>get_physical_address</span><span class=p>(</span><span class=n>va</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>pa</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[USER] VA: 0x%lx -&gt; PA: not mapped</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>va</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=nf>fprintf</span><span class=p>(</span><span class=n>fp</span><span class=p>,</span> <span class=s>&#34;[USER] VA: 0x%lx -&gt; PA: not mapped</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>va</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[USER] VA: 0x%lx -&gt; PA: 0x%lx</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>va</span><span class=p>,</span> <span class=n>pa</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=nf>fprintf</span><span class=p>(</span><span class=n>fp</span><span class=p>,</span> <span class=s>&#34;[USER] VA: 0x%lx -&gt; PA: 0x%lx</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>va</span><span class=p>,</span> <span class=n>pa</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;Counter = %d</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>counter</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;Sleeping to allow kernel reclaim...</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>sleep</span><span class=p>(</span><span class=mi>30</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>接著使用 cgroup 執行</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl><span class=cp>#!/bin/bash
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=nv>SLICE_NAME</span><span class=o>=</span>appdemo.slice
+</span></span><span class=line><span class=cl><span class=nv>UNIT_NAME</span><span class=o>=</span>alloc_<span class=k>$(</span>date +%s<span class=k>)</span>
+</span></span><span class=line><span class=cl><span class=nv>MEM_LIMIT</span><span class=o>=</span><span class=s2>&#34;300M&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;[*] build systemd slice：</span><span class=nv>$SLICE_NAME</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># create slice, limit memory resource</span>
+</span></span><span class=line><span class=cl>sudo systemctl set-property --runtime <span class=s2>&#34;</span><span class=nv>$SLICE_NAME</span><span class=s2>&#34;</span> <span class=nv>MemoryMax</span><span class=o>=</span><span class=nv>$MEM_LIMIT</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;[*] start running workload, running in slice&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>sudo systemd-run --unit<span class=o>=</span><span class=s2>&#34;</span><span class=nv>$UNIT_NAME</span><span class=s2>&#34;</span> --slice<span class=o>=</span><span class=s2>&#34;</span><span class=nv>$SLICE_NAME</span><span class=s2>&#34;</span> --pty --same-dir ./alloc
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;[*] workload finish, try cleanup&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># cleanup</span>
+</span></span><span class=line><span class=cl>sudo systemctl stop <span class=s2>&#34;</span><span class=nv>$UNIT_NAME</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>sudo systemctl reset-failed <span class=s2>&#34;</span><span class=nv>$UNIT_NAME</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>sudo systemctl stop <span class=s2>&#34;</span><span class=nv>$SLICE_NAME</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nv>CGROUP_PATH</span><span class=o>=</span><span class=s2>&#34;/sys/fs/cgroup/memory/</span><span class=nv>$SLICE_NAME</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=o>[</span> -d <span class=s2>&#34;</span><span class=nv>$CGROUP_PATH</span><span class=s2>&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>then</span>
+</span></span><span class=line><span class=cl>    <span class=nb>echo</span> <span class=s2>&#34;[*] waiting for cleanup&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=o>[</span> -s <span class=s2>&#34;</span><span class=nv>$CGROUP_PATH</span><span class=s2>/cgroup.procs&#34;</span> <span class=o>]</span><span class=p>;</span> <span class=k>do</span>
+</span></span><span class=line><span class=cl>        sleep 0.5
+</span></span><span class=line><span class=cl>    <span class=k>done</span>
+</span></span><span class=line><span class=cl>    <span class=nb>echo</span> <span class=s2>&#34;[*] remove cgroup：</span><span class=nv>$CGROUP_PATH</span><span class=s2>&#34;</span>
+</span></span><span class=line><span class=cl>    sudo rmdir <span class=s2>&#34;</span><span class=nv>$CGROUP_PATH</span><span class=s2>&#34;</span> 2&gt;/dev/null <span class=o>||</span> <span class=nb>echo</span> <span class=s2>&#34;Error&#34;</span>
+</span></span><span class=line><span class=cl><span class=k>fi</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;[*] Done&#34;</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=關於-flamegraph-與-dot-graph>關於 flamegraph 與 dot-graph</h3><p>flamegraph 為視覺化工具，用來顯示程式在執行期間的 stack traces，可以用來得知某個系統的效能瓶頸以及分析函式呼叫關係。以 Linux 中的使用，我們可以將 perf.data 作為後端資料，接著通過前端腳本對 perf.data 進行過濾之後得到 flamegraph。</p><p>以下為通過 <code>perf report</code> 檢視的部份原始資料</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>kswapd0      73 [002] 4400339479.836174:   15575919 cycles:P: 
+</span></span><span class=line><span class=cl>        ffffffff8122b313 shrink_folio_list+0x143 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff8122f903 evict_folios+0x153 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff81231285 lru_gen_shrink_node+0x125 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff81231f1c balance_pgdat+0x29c ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff81232593 kswapd+0x1e3 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff810c1bf7 kthread+0xd7 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff810441fc ret_from_fork+0x3c ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff8100267a ret_from_fork_asm+0x1a ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>kswapd0      73 [002] 4400339479.836174:   15575919 cycles:P: 
+</span></span><span class=line><span class=cl>        ffffffff81225938 folio_update_gen+0x38 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff8127486a walk_pgd_range+0x24a ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff812750eb __walk_page_range+0x19b ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff8127525c walk_page_range+0x14c ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff8123049f try_to_inc_max_seq+0x46f ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff81231110 get_nr_to_scan+0x60 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff8123126b lru_gen_shrink_node+0x10b ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff81231f1c balance_pgdat+0x29c ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff81232593 kswapd+0x1e3 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff810c1bf7 kthread+0xd7 ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff810441fc ret_from_fork+0x3c ([kernel.kallsyms])
+</span></span><span class=line><span class=cl>        ffffffff8100267a ret_from_fork_asm+0x1a ([kernel.kallsyms])
+</span></span></code></pre></td></tr></table></div></div><p>以下為 perf.data 過濾之後得到的 flamegraph</p><p><img src=https://hackmd.io/_uploads/SyghIoyeee.png loading=lazy alt=image></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ sudo perf record -F <span class=m>99</span> --call-graph dwarf -ag -- sleep <span class=m>60</span>
+</span></span><span class=line><span class=cl><span class=c1># running workload</span>
+</span></span><span class=line><span class=cl>$ sudo perf script &gt; mglru_trace.perf
+</span></span><span class=line><span class=cl>$ ./FlameGraph/stackcollapse-perf.pl mglru_trace.perf &gt; mglru_folded.txt
+</span></span><span class=line><span class=cl>$ ./FlameGraph/flamegraph.pl --title<span class=o>=</span><span class=s2>&#34;MGLRU Memory Reclaim&#34;</span> --width <span class=m>2000</span> --colors mem mglru_folded.txt &gt; mglru_flame.svg
+</span></span></code></pre></td></tr></table></div></div><p><img src=https://hackmd.io/_uploads/B1oNadU8lx.png loading=lazy alt=image></p><p>:::info
+使用 DWARF 可以提供更多 debug-info，詳細可以參考 Kernel Recipes 2017 - Perf in Netflix - Brendan Gregg
+:::</p><p>可以看到數據非常的龐大，這時候我們需要對我們感興趣的部份進行二次過濾，我們感興趣的目標為 mglru，而我們上面推論得到 mglru 會在記憶體壓力大時執行，Linux 在記憶體壓力大時會觸發 swap 機制，而 swap 機制是由 kswapd 執行，因此我們可以過濾出關於 kswapd 的資料來得到 mglru 的 call stack</p><p><img src=https://hackmd.io/_uploads/rkS1vjyexx.png loading=lazy alt=image></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ grep -E <span class=s2>&#34;kswapd0&#34;</span> mglru_folded.txt <span class=p>|</span> ./FlameGraph/flamegraph.pl --colors mem --width <span class=m>2000</span> --title<span class=o>=</span><span class=s2>&#34;MGLRU&#34;</span> &gt; mglru_specific.svg
+</span></span></code></pre></td></tr></table></div></div><p>從上圖我們就可以清楚的看到整個 mglru 的 stack traces。上面過濾出的，是針對記憶體壓力大時，觸發 swap 機制。</p><p>由 kswapd 的圖我們可以看出存在兩條主要路徑，分別為</p><p>路徑1. kswapd -> balance_pgdat -> shrink_node -> shrink_one -> try_to_inc_max_seq -> walk_page_range</p><p>路徑2. kswapd -> balance_pgdat -> shrink_node -> shrink_one -> try_to_shrink_lruvec</p><p>下面我們也可以針對 page fault 進行過濾，得到以下 flamegraph</p><p><img src=https://hackmd.io/_uploads/rkh-Psyegx.png loading=lazy alt=image></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ grep -E <span class=s1>&#39;lru|folio|shrink|refault&#39;</span> mglru_folded.txt <span class=p>|</span> head -n <span class=m>20</span> &gt; page_fault_info_mglru.txt
+</span></span></code></pre></td></tr></table></div></div><p>由 page fault 的圖我們可以看出一條主要路徑
+路徑3. exec_page_fault -> do_fault -> filemap_fault -> lru_add -> lru_gen_add_folio</p><p>由 flamegraph 分析 mglru，我們得到 mglru 存在三條主要 stack straces 路徑，作用分別為以下
+作用分別為以下作用分別為以下</p><ul><li>路徑1. Promote/Aging (hot page 升級，產生新的 gen)</li><li>路徑2. Evict / Refault (用於 page 淘汰)</li><li>路徑3. Page Fault (將 page 加入到最新 gen，也就是 <code>max_seq</code>)</li></ul><p>對於路徑分析，我們也可以使用 dot-graph 進行分析，可以更加具體的看到 function 之間的呼叫關係
+<img src=https://hackmd.io/_uploads/SJzzmiuxxx.png loading=lazy alt=image></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ cat mglru_trace.perf <span class=p>|</span> FlameGraph/stackcollapse-perf.pl &gt; out.collapse
+</span></span><span class=line><span class=cl>$ gprof2dot.py -f collapse out.collapse <span class=p>|</span> dot -Tpng -o output.png
+</span></span></code></pre></td></tr></table></div></div><h2 id=mglru-描述>MGLRU 描述</h2><p>MGLRU 核心想法是將 page 按照熱度分層管理，但相比起 Inactive/Active LRU list，MGLRU 將 page 區分成多個 generation。每個 page 對應到一個 gen 值，表示該 page 屬於哪一個 geneartion。</p><p>以下為 MGLRU 中關鍵部份，大致上可以分成以下五個部份</p><ul><li>Geneartion 概念: page 兩種分類，gen 以及 tier</li><li>Rmap 遍歷，得知一個 page/folio 是否為 young</li><li>Page Table Walk: 查詢 Page Table 查看 PTE 是否為 young</li><li>Bloom Filter: 縮小 Page Table Walk 需要走訪的範圍</li><li>PID 控制器: 用來控制回收的 page 類型以及保護 page</li></ul><h3 id=geneartion-概念>Geneartion 概念</h3><p>MGLRU 分類 page 主要使用上面 Gen 以及 Tier，Gen 和 Tier 為不同的概念，以下詳細描述</p><ul><li><p>世代 (Gen):</p><ul><li>Gen 意義: 每個 page 屬於一個 gen，表示 page 的熱度或是年齡。使用 sliding windows 實作</li><li>Gen 計算: gen 是由 <code>min_seq</code> 與 <code>max_seq</code> 定義，通過 <code>seq % MAX_NR_GENS</code> 計算出 gen</li><li>Gen 分類: <code>max_seq</code> 表示最年輕的 gen，<code>min_seq</code> 表示最老的 gen<ul><li>youngtest gen: max_seq (最年輕，熱度最高)</li><li>young gen: max_seq - 1</li><li>old gen: min_seq + 1</li><li>oldest gen: min_seq (最老的，熱度最低)</li></ul></li><li>Gen 維護: 對於 <code>max_gen</code>，anon page 和 file-backed 視為相同的 hot page，但是 anon page 和 file-backed 會分別維護 <code>min_seq</code></li></ul></li><li><p>Promote 機制與 Demote 機制</p><ul><li>Promote: 當 page 被再次存取時會 Promote 到新的 gen</li><li>Demote: 在 MGLRU 中不存在顯式 Demote 的操作，當 <code>max_seq</code> 增加時，沒有 Promote 的 page 相對年齡就增加了，達到隱式 Demote 的效果。</li><li>page 沈降: 隨著時間推移，沒有 Promote 的 page 自然變成 oldest gen，變得可能被回收的 page。當 oldest gen 中的 page 被全部回收，LRU list 被刪除並且 <code>min_seq++</code>，整個 windows 往前滑動</li><li>generation 不足: 當 generation 數量不足時，則會建立新的 generation 繼續區分 page 的熱度</li></ul></li><li><p>層級 (Tier)
+定義: 每個 page (folio) 根據 (通過 fd 存取的次數，像是 <code>write(), read()</code>) 被分配到一個 Tier，假設 page 通過 fd 存取的次數為 $N$，則 $Tier = order_base_2(N)$。每個 Page 使用額外 2 bit 去紀錄他們屬於的 Tier，Tier 的最大值為 $MAX_NR_TIERS = 4$</p><ul><li>Tier = 0 -> N = 0,1</li><li>Tier = 1 -> N = 2,3</li><li>Tier = 2 -> N = 4,5,6,7</li><li>Tier = 3 -> N = 8+
+(上面這個使用圖表進行表示)</li></ul></li><li><p>Refault 率統計</p><ul><li>Refault 定義: 某個 page 被回收後再次被存取 (該 page 重新被載入到記憶體) 的比率</li><li>Refault 資料結構: 統計方式為通過 <code>lrugen->refaulted[hist][type][tier]</code> 記錄不同世代 (<code>hist</code>)，Page 類型 (<code>anon</code>/<code>file-backed</code>), Tier 的 refault 次數。使用這個陣列紀錄每一個 Tier 的 refault 率，也就是這個 Tier 被回收的 page 之後又被重新載入 (refault) 的比例。</li><li>Refault 率 = 被回收又重新載入的 page 數量 / 被回收的 page 數量</li><li>決策機制:<ul><li>先比較 <code>min_seq</code> 的值，選擇較小值，也就是更老的 page 類型</li><li>如果兩個 page 類型都相同，則比較 Tier 0 的 refault 率，選擇比較低的 page 類型進行回收</li><li>使用 PID 控制器的回饋機制，動態平衡不同 page 類型的 refault 率</li></ul></li></ul></li></ul><p>總結一下，每個 page 通過額外的 flags 紀錄自己屬於的 Tier，系統會維護額外的 array 去紀錄每一個 Tier 的 refault 率。eviction 策略會根據 refault 動態調整回收的行為，避免頻繁存取的 page 但是未達到 Promote 標準的 page 被過早的回收，也就是 refault 率可以用來判斷當兩種 page 類型年齡相同時，refault 率可以用來判斷要回收的 page，更加精細化 page 的分類。</p><p>由上面的描述，我們會發現到，當有一個 Page 位於最老的 gen，但是他的 refault 率高，這時候我們應該有一個機制對這類的 page 進行處理，避免他們被回收，影響到 working set，在 MGLRU 中存在 Protect 機制用來保護這一些 page。</p><ul><li>Protect 機制:<ul><li>當某個 Tier 的 Refault 率高於 Tier 0 的 Refault 率，將會觸發 Protect 機制</li><li>觸發 Protect 機制的 page，會被移動到 old gen <code>min_seq + 1</code>，相當於給這個 page second chance，避免整個 oldest gen 一次被回收乾淨，造成部份 Trashing 現象發生</li><li>目標為了提高 MGLRU 對於密集 I/O 的 working set 保護效果</li></ul></li></ul><p>以下為 mglru 關鍵資料結構程式碼</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>struct</span> <span class=n>lru_gen_folio</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* the aging increments the youngest generation number */</span>
+</span></span><span class=line><span class=cl>	<span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>max_seq</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* the eviction increments the oldest generation numbers */</span>
+</span></span><span class=line><span class=cl>	<span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>min_seq</span><span class=p>[</span><span class=n>ANON_AND_FILE</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* the birth time of each generation in jiffies */</span>
+</span></span><span class=line><span class=cl>	<span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>timestamps</span><span class=p>[</span><span class=n>MAX_NR_GENS</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* the multi-gen LRU lists, lazily sorted on eviction */</span>
+</span></span><span class=line><span class=cl>	<span class=k>struct</span> <span class=n>list_head</span> <span class=n>folios</span><span class=p>[</span><span class=n>MAX_NR_GENS</span><span class=p>][</span><span class=n>ANON_AND_FILE</span><span class=p>][</span><span class=n>MAX_NR_ZONES</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>	<span class=p>...</span>
+</span></span></code></pre></td></tr></table></div></div><p>存放 page (folios) 為一個三維陣列結構，使用以下方式進行拆分</p><ul><li>第一維度: Generation，最多 4 個 generation</li><li>第二維度: 屬於 anon page 還是 file-backed page</li><li>第三維度: NUMA Node，對於 UMA 為 1</li></ul><p>記錄 Refault 率的結構也同樣位於 lru_gen_folio 中</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>struct</span> <span class=n>lru_gen_folio</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* the multi-gen LRU sizes, eventually consistent */</span>
+</span></span><span class=line><span class=cl>	<span class=kt>long</span> <span class=n>nr_pages</span><span class=p>[</span><span class=n>MAX_NR_GENS</span><span class=p>][</span><span class=n>ANON_AND_FILE</span><span class=p>][</span><span class=n>MAX_NR_ZONES</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* the exponential moving average of refaulted */</span>
+</span></span><span class=line><span class=cl>	<span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>avg_refaulted</span><span class=p>[</span><span class=n>ANON_AND_FILE</span><span class=p>][</span><span class=n>MAX_NR_TIERS</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* the exponential moving average of evicted+protected */</span>
+</span></span><span class=line><span class=cl>	<span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>avg_total</span><span class=p>[</span><span class=n>ANON_AND_FILE</span><span class=p>][</span><span class=n>MAX_NR_TIERS</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* can only be modified under the LRU lock */</span>
+</span></span><span class=line><span class=cl>	<span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>protected</span><span class=p>[</span><span class=n>NR_HIST_GENS</span><span class=p>][</span><span class=n>ANON_AND_FILE</span><span class=p>][</span><span class=n>MAX_NR_TIERS</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>	<span class=cm>/* can be modified without holding the LRU lock */</span>
+</span></span><span class=line><span class=cl>	<span class=kt>atomic_long_t</span> <span class=n>evicted</span><span class=p>[</span><span class=n>NR_HIST_GENS</span><span class=p>][</span><span class=n>ANON_AND_FILE</span><span class=p>][</span><span class=n>MAX_NR_TIERS</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>	<span class=kt>atomic_long_t</span> <span class=n>refaulted</span><span class=p>[</span><span class=n>NR_HIST_GENS</span><span class=p>][</span><span class=n>ANON_AND_FILE</span><span class=p>][</span><span class=n>MAX_NR_TIERS</span><span class=p>];</span>
+</span></span></code></pre></td></tr></table></div></div><p>下圖簡單描述 gen, tier 之間的關係
+<img src=https://hackmd.io/_uploads/SkA9-sdgge.png loading=lazy alt=image></p><p>下突圍 Protect 與 Promote 之間的關係
+<img src=https://hackmd.io/_uploads/BkZAbo_lge.png loading=lazy alt=image></p><h3 id=路徑1-aging-機制>路徑1. Aging 機制</h3><p>所謂 Aging，指的是通過建立新的 gen 提高 page 熱度判斷的機制。在 kernel 回收 page 的時候，當發現現有的 gen 數量不足以區分 hot/cold page 時，這時後會觸發 Aging 操作，Aging 操作會新增一個 gen。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=nf>kswapd</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>  <span class=err>└─</span> <span class=nf>balance_pgdat</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>      <span class=err>└─</span> <span class=nf>shrink_node</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>          <span class=err>└─</span> <span class=nf>shrink_one</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>              <span class=err>└─</span> <span class=nf>try_to_shrink_lruvec</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                  <span class=err>└─</span> <span class=nf>lru_gen_shrink_lruvec</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                      <span class=err>└─</span> <span class=nf>should_run_aging</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                          <span class=err>└─</span> <span class=nf>try_to_inc_max_seq</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                              <span class=err>└─</span> <span class=nf>lru_gen_age_node</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                                  <span class=err>└─</span> <span class=nf>walk_page_range</span> <span class=p>(</span><span class=k>for</span> <span class=n>each</span> <span class=n>mm_struct</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                                      <span class=err>└─</span> <span class=nf>folio_update_gen</span><span class=p>()</span>
+</span></span></code></pre></td></tr></table></div></div><p>啟動 Aging 後，MGLRU 會通過 Page Table Walker 更新 page 的熱度，接著對於目前記憶體中每個 process/mm_struct，會呼叫 <code>walk_page_range()</code> 遍歷其 Page Table，以找到年輕的 page (PTE 的 Accessed bit 為 1 的)。為了降低開銷，遍歷之前會先查詢 Bloom Filter 找到值得掃描的 Page 區域 (例如包含多個 hot page 的 PMD)。在遍歷過程中，如果發現這個範圍內存在 Access Bit 為 1 的 PTE，表示該 page 近期有被存取過，屬於潛在的 hot page，這時後會通過 <code>folio_update_gen()</code> 標記該 page promote 到最新的 gen，也就是將該 page 的 generation 更新成 <code>max_seq</code>，而 promote 操作是只去修改 page 的 gen 標記，不是立即移動該 page 在 LRU list 中的位置，直到真正 evict 的時候才會進行移動</p><p>當一輪 Aging 的操作結束，新的 gen 產生，這時候 <code>max_seq + 1</code>，並紀錄目前的 timestamp。MGLRU 隨後會使用該 timestamp 實現 Thrashing 防護，如果之後嘗試回收 <code>min_seq</code> 裡面的 page，發現到 <code>min_seq</code> 的產生時間還沒超過預設的 TTL 閥值，則會暫緩回收該 gen。這個機制避免系統頻繁的回收/建立 gen，防止 working set 因為頻繁的在 gen 之間移動造成 Thrashing。</p><p>完成 Aging 之後，MGLRU 會繼續進行 page evict 的流程，不斷循環的執行 Promote / Evict / Aging 的流程，使得 hot page 保留在最新的 gen，cold page 沈積到最老的 gen。在任何時刻，MGLRU 最多保持 4 個 gen，這一件事情是通過 sliding windows (<code>4 >= max_seq - min_seq >= 2</code>) 保證。</p><p>以 call chain 進行分析，則可以得到以下</p><p>記憶體高壓，需要將 page swapout，這時候 kswapd 被喚醒，接著執行 <code>shrink_node()</code> -> <code>shrink_lruvec()</code> -> <code>lru_gen_shrink_lruvec</code> -> <code>should_run_aging</code> -> <code>try_to_inc_max_seq()</code> 執行主要的 Aging -> 內部對每個 memcg 的 <code>mm_list</code> 呼叫 <code>walk_page_range()</code> 遍歷 Page Table，在 callback 中對遍歷 Page Table 過程中發現的 young page (PTE 為 1) 的 page 呼叫 <code>folio_update_gen()</code> Promote 該 page 的 gen，同時將資訊回饋到 Bloom Filter 優化值得走訪的記憶體區域，全部完成之後準備進行 Eviction</p><p>整體流程為以下
+<img src=https://hackmd.io/_uploads/r1GJMsdglg.png width=350></p><h3 id=路徑2-evict>路徑2. Evict</h3><p>:::info
+關於 <code>walk_page_range()</code> 與 rmap 的差別</p><p>:::</p><p>Eviction 流程指的是從 <code>min_seq</code> 開始淘汰 page 的機制。在 MGLRU 中，始終只回收目前 <code>min_seq</code> LRU list 中的 page。當觸發 kswapd 時，kernel 會選擇 <code>min_seq</code> 進行掃描以及回收。由於 MGLRU 會將 hot page 通過 Aging 機制將 hot page Promote 到 <code>max_seq</code>，自然而然相對 cold page 就會沈降到 <code>min_seq</code>，<code>min_seq</code> 裡面的 page 為長時間沒有存取的 page，可作為回收的目標。對於 <code>min_seq</code>，MGLRU 會分別維護 anon page 和 file-backed page 兩個 list，因此可能存在 anon page 和 file-backed page 兩者 <code>min_seq</code> 不同步的情況。</p><p>以下為 Eviction 的 call chain</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=nf>kswapd</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>  <span class=err>└─</span> <span class=nf>balance_pgdat</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>      <span class=err>└─</span> <span class=nf>shrink_node</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>          <span class=err>└─</span> <span class=nf>shrink_one</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>              <span class=err>└─</span> <span class=nf>try_to_shrink_lruvec</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                  <span class=err>└─</span> <span class=nf>evict_folios</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                      <span class=err>├─</span> <span class=nf>isolate_folios</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                      <span class=err>│</span>    <span class=err>└─</span> <span class=nf>scan_folios</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                      <span class=err>│</span>         <span class=err>├─</span> <span class=nf>sort_folio</span><span class=p>()</span>     <span class=c1>// Promote 熱頁到次老世代
+</span></span></span><span class=line><span class=cl><span class=c1></span>                      <span class=err>│</span>         <span class=err>└─</span> <span class=nf>isolate_folio</span><span class=p>()</span>  <span class=c1>// 選出 page
+</span></span></span><span class=line><span class=cl><span class=c1></span>                      <span class=err>├─</span> <span class=nf>shrink_page_list</span><span class=p>()</span>         <span class=c1>// 對選出的 page 進行實際回收
+</span></span></span><span class=line><span class=cl><span class=c1></span>                      <span class=err>│</span>    <span class=err>├─</span> <span class=nf>folio_check_references</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                      <span class=err>│</span>    <span class=err>│</span>    <span class=err>└─</span> <span class=nf>folio_referenced</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>                      <span class=err>│</span>    <span class=err>│</span>         <span class=err>└─</span> <span class=nf>lru_gen_look_around</span><span class=p>()</span> <span class=c1>// 局部性優化，尋找附近的 hot PTE
+</span></span></span><span class=line><span class=cl><span class=c1></span>                      <span class=err>│</span>    <span class=err>├─</span> <span class=nf>lru_gen_set_refs</span><span class=p>()</span>    <span class=c1>// 決定是否 Protect（移動到 min_seq+1）
+</span></span></span><span class=line><span class=cl><span class=c1></span>                      <span class=err>│</span>    <span class=err>└─</span> <span class=nf>try_to_free_swap</span><span class=p>()</span> <span class=o>/</span> <span class=nf>folio_free</span><span class=p>()</span> <span class=c1>// swap out 或釋放
+</span></span></span><span class=line><span class=cl><span class=c1></span>                      <span class=err>└─</span> <span class=nf>try_to_inc_min_seq</span><span class=p>()</span>       <span class=c1>// 若 oldest gen 已清空則淘汰並 min_seq++
+</span></span></span></code></pre></td></tr></table></div></div><p>進入 Eviction 流程後，關鍵函式 <code>lru_gen_shrink_lruvec()</code> 按照一定策略從 <code>min_gen</code> list 提取 page 進行處理。每次提取一批 page 後，會對這一些 page 逐一進行回收判斷。對每個 page (<code>struct folio</code>)，首先呼叫 <code>folio_check_references()</code> 檢查最近是否被引用或是屬於 working set 的 page，<code>folio_check_references()</code> 會進一步呼叫 <code>folio_referenced()</code> 執行 Rmap 走訪，查詢該 page 映射的所有 PTE，統計該 page 的引用情況。</p><p>關於 <code>folio_referenced</code> 的實現運用到空間局部性進行優化，當通過 Rmap 找到某個 process 的 PTE 值，MGLRU 會呼叫 <code>lru_gen_look_around</code> 查看該 PTE 相鄰的多個 PTE，如果附近的 PTE 也屬於年輕的 (也就是 Access Bit 為 1)，則這一些 page 會被標記為 Promote，之後便會真正 Promote 到 <code>max_seq</code>。利用 Look-around 機制，MGLRU 可以在一次 Rmap 中找到多個 hot page，減少重複遍歷 Page Table 的開銷，並且這些 PTE 對應到的上層 Page Table 節點，也就是 PMD 會被紀錄到 Bloom Filter 中，做為之後 Aging 階段的輔助判斷資訊</p><p>對於每個從 <code>min_seq</code> 提取的 page，<code>folio_check_references</code> 會根據 rmap 的結果回傳 enum，該 enum 的意義是對 page eviction 的建議</p><ul><li><code>FOLIOREF_RECLAIM</code>: page 最近沒有被 reference，可以回收</li><li><code>FOLIOREF_ACTIVATE</code>: page 最近被 reference，應該 Promote 並保留</li><li><code>FOLIOREF_KEEP</code>: 暫時不處理 (可能正在被其他程式使用或 lock)</li></ul><p>如果 page 最近沒有任何引用，也就是 <code>referenced_ptes</code> 為 0，則屬於真正的 cold page，將按照該 page 屬於的類型進行 direct reclaim。屬於 file-backed page 會直接回收或是 write-back 到硬碟，而如果屬於 anon page 則會 swap 出去。</p><p>如果 page 最近有使用，則 MGLRU 會給該 page 第二刺激會，<code>folio_check_references()</code> 通過 <code>lru_gen_set_refs()</code> 函式判斷是否需要 promote 該 page，這裡具體為使用 Tier 去判斷該 page 是否最近被使用過以及是否屬於 working set (也就是被 evict 之後又重新載入的 page，refault 的概念)</p><ul><li>第一次發現引用: 如果 page 此前沒有標記 Referenced 也不是屬於 working set 的 page，<code>lru_gen_set_refs()</code> 將該 page 標記為 referenced (設置 <code>PG_referenced</code> Flag)，接著回傳 false，意義為該 page 暫時不做 Promote。整個意義是紀錄該 page 引用了一次，給 page 一次機會留在目前的 gen，下一次再遇到該 page 的時候再做決定</li><li>再次被引用或是曾經被 refault: 如果 page 已經有 referenced 標記或者其 <code>PG_workingset</code> Flag 為 True (表示該 page 曾經 refault 過，屬於 working set 的一部分)，那麼 <code>lru_gen_set_refs</code> 會回傳 True，表示該 page 需要進行 Promote。這時候 <code>folio_check_references()</code> 會回傳 <code>FOLIOREF_ACTIVATE</code>，kernel 會將該 page 從 <code>min_seq</code> 移除並重新加入到 <code>max_seq</code>，實作為移動到 generation 最高的 list，避免這次被回收，這個提升 page 的操作也稱為對該 page 的 Protect</li></ul><p>上面的策略，MGLRU 確保一個 page 要被 Protect，也就是 page 被 Promote 需要符合以下一個條件</p><ul><li>Page 被存取兩次</li><li>該 Page 屬於 working set
+通過以上策略避免一些 page 因為一次偶然的存取就阻止該 page 被回收。而對於確實經常被存取的 page，MGLRU 會對該 page 進行 Protect 避免其被淘汰</li></ul><p>隨著 eviction 機制進行，<code>min_seq</code> 裡面的 page 不是被回收釋放，不然就是因為他有引用而被移除 <code>min_seq</code>加入到 <code>max_seq</code>。Kernel 會持續進行上面的操作，直到 gen 裡面所有 page 處理完畢，接著該 gen 就會被丟棄，將 <code>min_seq + 1</code> (淘汰最老的 gen)，這部份由 <code>inc_min_seq()</code> 完成，負責更新 anon page 和 filed-back page 對應的 oldest gen seq 並清理相關資料結構。丟棄 gen 的同時，kernel 會去維護一些輔助資料結構，像是該 gen 中被回收的 page 數量，各 Tier 被回收和 refault 次數等等，特別會針對剛剛在回收或成因為 refault 率高而被 Protect 的 page 資訊也會被記錄下來，納入歷史統計中，用於調整後續的 eviction 策略。完成一個 gen 回收後，如果記憶體壓力沒有紓解並且需要釋放更多記憶體，MGLRU 會繼續重複上面 Aging + Eviction 過程</p><p>以 call chain 進行分析如下
+<code>lru_gen_shrink_lruvec()</code> -> 從 <code>min_seq</code> list 中提取 page 進行處理 -> 對每個 page 呼叫 <code>folio_check_references()</code> 檢查是否被引用 -> <code>folio_eferenced()</code> 執行 rmap 查詢 Access Bit (裡面呼叫 <code>lru_gen_look_around</code>) 檢查鄰近 PTE 並標記 hot page，更新 Bloom Filter) -> 根據 <code>folio_check_references</code> 回傳的 enum 決定 folio 應該如何處理，沒有引用的進行回收 (呼叫 <code>try_to_free_swap</code> 或 <code>folio_free</code> 釋放)，如果有引用則呼叫 <code>lru_gen_set_refs</code> 判斷是否應該 Promote (進行 Protect) -> 如果需要 Promote 則將該 page 加入到 <code>max_seq</code> -> 繼續處理下一個 page，直到提取出的 page 都被掃描完畢 -> 處理完畢後呼叫 <code>inc_min_seq</code> 將該 gen 丟棄，並將 <code>min_seq + 1</code></p><p>整體流程為以下
+<img src=https://hackmd.io/_uploads/SyqGGj_exl.png width=500></p><p>整個 Eviction 和 Aging 和 Promote 行為一個循環圖，可以表示成以下
+<img src=https://hackmd.io/_uploads/ByJLfjuglg.png loading=lazy alt=image></p><h4 id=關鍵函式-try_to_shrink_lruvec-分析>關鍵函式 <code>try_to_shrink_lruvec</code> 分析</h4><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>static</span> <span class=kt>bool</span> <span class=nf>try_to_shrink_lruvec</span><span class=p>(</span><span class=k>struct</span> <span class=n>lruvec</span> <span class=o>*</span><span class=n>lruvec</span><span class=p>,</span> <span class=k>struct</span> <span class=n>scan_control</span> <span class=o>*</span><span class=n>sc</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kt>long</span> <span class=n>nr_to_scan</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>	<span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>scanned</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>	<span class=kt>int</span> <span class=n>swappiness</span> <span class=o>=</span> <span class=nf>get_swappiness</span><span class=p>(</span><span class=n>lruvec</span><span class=p>,</span> <span class=n>sc</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>while</span> <span class=p>(</span><span class=nb>true</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=kt>int</span> <span class=n>delta</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=n>nr_to_scan</span> <span class=o>=</span> <span class=nf>get_nr_to_scan</span><span class=p>(</span><span class=n>lruvec</span><span class=p>,</span> <span class=n>sc</span><span class=p>,</span> <span class=n>swappiness</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=p>(</span><span class=n>nr_to_scan</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=n>delta</span> <span class=o>=</span> <span class=nf>evict_folios</span><span class=p>(</span><span class=n>lruvec</span><span class=p>,</span> <span class=n>sc</span><span class=p>,</span> <span class=n>swappiness</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>delta</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=n>scanned</span> <span class=o>+=</span> <span class=n>delta</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=p>(</span><span class=n>scanned</span> <span class=o>&gt;=</span> <span class=n>nr_to_scan</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=p>(</span><span class=nf>should_abort_scan</span><span class=p>(</span><span class=n>lruvec</span><span class=p>,</span> <span class=n>sc</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>			<span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=nf>cond_resched</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm>	 * If too many file cache in the coldest generation can&#39;t be evicted
+</span></span></span><span class=line><span class=cl><span class=cm>	 * due to being dirty, wake up the flusher.
+</span></span></span><span class=line><span class=cl><span class=cm>	 */</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=p>(</span><span class=n>sc</span><span class=o>-&gt;</span><span class=n>nr</span><span class=p>.</span><span class=n>unqueued_dirty</span> <span class=o>&amp;&amp;</span> <span class=n>sc</span><span class=o>-&gt;</span><span class=n>nr</span><span class=p>.</span><span class=n>unqueued_dirty</span> <span class=o>==</span> <span class=n>sc</span><span class=o>-&gt;</span><span class=n>nr</span><span class=p>.</span><span class=n>file_taken</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=nf>wakeup_flusher_threads</span><span class=p>(</span><span class=n>WB_REASON_VMSCAN</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=cm>/* whether this lruvec should be rotated */</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=n>nr_to_scan</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>上面為 MGLRU 中關鍵的程式碼，這是 Memory Reclaim 流程中真正要淘汰 page 的地方</p><p>整個函式可以分成以下部份</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=kt>int</span> <span class=n>swappiness</span> <span class=o>=</span> <span class=nf>get_swappiness</span><span class=p>(</span><span class=n>lruvec</span><span class=p>,</span> <span class=n>sc</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>首先取得 <code>swappiness</code><ul><li><code>swappiness</code> 控制要回收的 page 傾向，是要傾向於 anon page 還是 file-backed page</li><li>如果 <code>swappiness</code> 偏高，表示更傾向於回收 anon page，反之則 file-backed page。這個值會在 <code>get_nr_to_scan</code> 和 <code>evict_folios</code> 中使用，他們會根據 <code>swappiness</code> 決定要處理的 page 類型</li></ul></li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>while</span> <span class=p>(</span><span class=nb>true</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>nr_to_scan</span> <span class=o>=</span> <span class=nf>get_nr_to_scan</span><span class=p>(</span><span class=n>lruvec</span><span class=p>,</span> <span class=n>sc</span><span class=p>,</span> <span class=n>swappiness</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=n>nr_to_scan</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>break</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>接著進入主要回收迴圈，先計算要掃描的 page 數量<ul><li><code>get_nr_to_scan()</code> 根據目前的 memory pressure 和 generation 結構計算目前需要掃描</li><li>如果發現結果 &lt;= 0，表示此 lruvec 不需要掃描</li></ul></li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=n>delta</span> <span class=o>=</span> <span class=nf>evict_folios</span><span class=p>(</span><span class=n>lruvec</span><span class=p>,</span> <span class=n>sc</span><span class=p>,</span> <span class=n>swappiness</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>delta</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>break</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>這裡是主要做回收的地方<ul><li><code>evict_folios()</code> 是實際掃描並嘗試回收某一層 generation 中的 page (folios) 的函式</li><li><code>delta</code> 表示這次成功處理 (包含 reclaim 以及 skip) 的 page 數量</li><li>如果 <code>delta == 0</code>，表示這一層 generation 沒有可以回收的 page，跳出迴圈</li></ul></li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=n>scanned</span> <span class=o>+=</span> <span class=n>delta</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=n>scanned</span> <span class=o>&gt;=</span> <span class=n>nr_to_scan</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>break</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>計算已經掃描的 page 數量並確認是否達標<ul><li>通過 <code>scanned</code> 去累加這次總共掃描了多少 page</li><li>如果已經達到預估得掃描數量 <code>nr_to_scan</code>，則退出</li></ul></li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=nf>should_abort_scan</span><span class=p>(</span><span class=n>lruvec</span><span class=p>,</span> <span class=n>sc</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=k>break</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>檢查是否該中止回收行為<ul><li>內部條件判斷是否要中止，例如 memory pressure 減緩，或 CPU 覆載過高</li></ul></li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=nf>cond_resched</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>讓出 CPU 避免 starvation<ul><li><code>cond_resched()</code> 允許 scheduler 在這個點做 context switch，避免目前這個函式長時間佔用 CPU</li></ul></li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=n>sc</span><span class=o>-&gt;</span><span class=n>nr</span><span class=p>.</span><span class=n>unqueued_dirty</span> <span class=o>&amp;&amp;</span> <span class=n>sc</span><span class=o>-&gt;</span><span class=n>nr</span><span class=p>.</span><span class=n>unqueued_dirty</span> <span class=o>==</span> <span class=n>sc</span><span class=o>-&gt;</span><span class=n>nr</span><span class=p>.</span><span class=n>file_taken</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nf>wakeup_flusher_threads</span><span class=p>(</span><span class=n>WB_REASON_VMSCAN</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>處理 dirty page 的狀況<ul><li>如果掃描到很多 page 都屬於 dirty file-backed page，且都沒有進入到 flusher queue，就會 wake up flusher thread</li><li>避免 dirty page 卡在回收過程中</li></ul></li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>return</span> <span class=n>nr_to_scan</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>return 並由上層 caller 判斷是否需要進行 rotate<ul><li>如果 <code>nr_to_scan &lt; 0</code>，表示某些 generation 掃描完畢，應該準備 rotate 到下一個 generation</li><li>這個值會回傳到上層如 <code>shrink_one()</code> 決定是否進行</li></ul></li></ul><p><code>try_to_shrink_lruvec()</code></p><ul><li>真正執行 LRU page reclaim 的函式，函式目標為是對某個 memory cgroup 的某個 <code>lruvec</code>　嘗試執行 MGLRU 的回收邏輯</li><li>caller 會根據目前的 memory pressure 決定要去哪一個 generation 做 reclaim</li><li>MGLRU 會掃描某一層中 gen X (page vectors)，根據 page 的 hot cold 進行回收</li><li>之後通過 <code>evict_folios</code> 檢查後確認要回收</li></ul><h3 id=pid-控制迴路與-anonfile-backed-page-平衡>PID 控制迴路與 anon/file-backed page 平衡</h3><p>MGLRU 在 eviction 決策中引入類似於控制迴路中 PID 控制器的回饋機制，用於平衡 anon page 和 file-backed page 的回收比例。整套機制透過 Refault 率等指標作為回饋訊號來調整 eviction 策略，使得 working set 能夠得到保護。</p><ul><li><p>回收 page 類型選擇 (P: 比例調節): MGLRU 會比較目前 anon page 與 file-backed page 的 refault 比率，傾向回收 refault 比率較低的 page 類型。如果每一類 page 被回收之後很少被再次存取，也就是很少被 refault，那表示這一類型的 page 對於目前的 working set 不重要，因此把這一些 page 回收掉對性能影響較小，反之，如果某一類型的 page 不斷被 refault，則表示這一類型的 page 包含目前的 working set，應該減少回收這一類型的 page。通過這種方式去平衡 anon page 和 file-backed page 的回收比例 (相比起 2Q LRU 使用 <code>swappiness</code> 固定比例，MGLRU 的實現為動態調整)。</p><p>P 裡面的比率，指的是 refault 率</p></li><li><p>working set 保護 (I: 積分調節): 為了進一步避免某部份 working set 被過度回收，MGLRU 引入 Tier 對 page 的存取頻率進行分類，並基於歷史統計數據對這一些 page 進行保護。每個 page 都有一個 2-bit 的欄位作為 Tier 值，總共分成四個層級。Tier 的計算主要是基於該 page 通過 syscall 如 <code>read(), write()</code> 的存取次數，如果存取次數為 $n$，則 Tier = $\lfloor \log_2(n) \rfloor$，例如如果一個 file-backed page 只被讀取一次，則 Tier=0。被 syscall 讀寫 2 次則 Tier = 1。anon page 通常不使用 Tier 劃分。MGLRU 會持續統計各個 Tier 中 page 被回收和 refault 的次數，從而計算每一 Tier 的 refault 率。在 eviction 過程中，會使用到積分調節的概念，也就是參考一段時間內的歷史資料，如果某些 Tier 較高的 page 歷史 refault 率偏高，即便在某一次掃描時該 page 沒有被引用，MGLRU 也會對該 page 進行 protect，避免一次回收過多此 Tier 的 page。使用過去累積的 refault 訊息調節 eviction 策略。</p></li><li><p>D 在 MGLRU 中沒有使用</p></li></ul><p>總而來說，MGLRU 的 PID 控制迴路將上面的 P 與 I 結合，P 即時的調整回收傾向的 page 類型以及層級，而 I 基於歷史統計對高 refault 率或是高 Tier 的 page 進行保護，P 和 I 共同作用達成保留 working set 的效果。例如某段時間內的 file-backed page 的 refault 率遠高於 anon page，P 會更傾向回收更多 anon page 以保護 working set，也就是保護 file-backed page。同時如果發現某 Tier 的 refault 率教高，則 I 會降低該 Tier page 的回收，必要時會針對個別 page 進行 Protect (移入 <code>min_seq + 1</code>)。MGLRU 對 <code>max_seq</code> 的 anon page 和 file-backed page 始終是同步的，但是對於 <code>min_seq</code> 是不同步的，原因是為了實現上面的 PID 動態平衡機制。傳統 2Q LRU 的第二次存取 page Promote 到 active list 的機制在 MGLRU 中使用 gen 以及上面的 Tier, PID 迴路機制取代，例如對於新映射的 page，一次存取立即放到 <code>max_seq</code>，而對於 syscall 存取的 file-backed page，則需要通過多次存取累積一定的 Tier 才會被 Promote。</p><h3 id=關於-bloom-filter-降低-rmap-開銷>關於 Bloom Filter 降低 Rmap 開銷</h3><p>MGLRU 在 Aging 階段引入了 Bloom Filter 降低掃描 Page Table 和 Rmap 的開銷。2Q LRU 在判斷 page 是否進行有被使用時，需要對每個 page 進行 Rmap 操作來尋所有映射該 page 的 PTE 並檢查其 Accessed bit，Rmap 需要大量的開銷，為此，Rmap 通過以下方式進行優化</p><ul><li>熱區紀錄: 在 eviction 過程中，當執行 Rmap 檢查 page 的引用時，MGLRU 會同時查看該 page 所在的 PMD 是否包含多個被引用的 page。這部份通過 <code>lru_gen_look_around()</code> 實現，如果 <code>lru_gen_look_around()</code> 在目標 page 的附近 PTE 中發現多個 page 的 Accessed Bit 都是 1，也就是這一些 page 都屬於年輕的，就表示這一整片 PMD 都是 hot page。MGLRU 會將對應的 PMD entry 紀錄到 Bloom Filter 中 (通過 <code>update_bloom_filter()</code> 將 PMD 紀錄到 Bloom Filter)</li><li>double-buffering 與 flip filters: MGLRU 使用 double-buffering 的 Bloom Filter 實現 flip filter。Bloom Filter 實現的資料結構為 Bit Map 以及 hash function，Bit Map 大小為 $m=2^{15}$，hash function 使用 2 個，可在容納 10000 條 entry 時保持較低的誤判率。每次 Aging 迭代的時候會使用 flip filter 翻轉到另外一個 Bloom Filter，將新發現的熱區紀錄到目前的 Bloom Filter，另一個則清空或是逐步淘汰舊資訊。確保 Bloom Filter 中的內容隨時間更新，裡面的資訊為最近幾次 eviction 所發現的熱區，而不至於保留過時的訊息</li><li>Page Table Walker: 在 Aging 流程中，kernel 對每個 process 進行 Page Table 走訪時，會先對每個 PMD 查詢 Bloom Filter (<code>test_bloom_filter()</code>)，如果一個 PMD entry 或是其他中間節點在 Bloom Filter 中存在，表示之前 eviction 該區域時裡面有不少 hot page，值得深入走訪。如果 PMD entry 不在 Bloom Filter 中，則該區域可能 hot page 的分佈非常稀疏，大部分都是冷的或是沒有映射，這時候我們就不需要再深入走訪了，可以直接跳過。通過這樣優化減少需要完整掃描的 Page Table 範圍。通過 Bloom Filter 塞選，Page Table Walker 可以跳過那些很可能是冷的區域，專注走訪那些存在較多 Accessed Bit 為 1 的 page。</li><li>降低 Rmap 次數: 許多 hot page 會在 Aging 時被標記並在 eviction 時 Promote，而 Bloom Filter 又確保在 Aging 階段不會對整個系統做沒必要的掃描。比起 2Q LRU 依賴 Rmap 一個一個 page 的檢查方式，MGLRU 相當於將部份工作分攤在其他階段處理<ul><li>在 Eviction 時藉由一次 Rmap 走訪收穫額外週邊多個 page 的 Accessed 訊息</li><li>在 Aging 時利用 Eviction 得到的訊息進行掃描</li><li>MGLRU 在 Eviction 以及 Aging 之間就建立了一個迴路: Eviction 發現熱區 -> 更新 Bloom Filter -> Aging 根據 Bloom Filter 重點提升 hot page。
+藉由上面這種設計，減少不必要的 rmap 操作，減輕記憶體回收對 CPU 的負載。</li></ul></li></ul><h2 id=測試環境>測試環境</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>發行版: Fedora
+</span></span><span class=line><span class=cl>Linux Kernel Version: Linux apt 6.14.0-63.fc42.x86_64
+</span></span></code></pre></td></tr></table></div></div><h3 id=使用-mglru-debugfs>使用 MGLRU debugfs</h3><p>首先建立 cgroup</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ sudo mkdir -p /sys/fs/cgroup/&lt;name&gt;
+</span></span></code></pre></td></tr></table></div></div><p>接著把指定 process 的 pid 加入到該 cgroup 中</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ <span class=nb>echo</span> pid <span class=p>|</span> sudo tee /sys/fs/cgroup/wkgrp/cgroup.procs
+</span></span></code></pre></td></tr></table></div></div><p>可以使用以下指定觀察給定 process 是否加入到指定 cgroup 中</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ systemd-cgls /sys/fs/cgroup/wkgrp
+</span></span></code></pre></td></tr></table></div></div><p>接著執行 workload 觀察 <code>memory.stat</code>，我們可以特別選出 <code>anon page</code> 進行觀察 (<code>malloc</code> 出來的 page　屬於 <code>anon page</code>，我們頻繁的存取這一些 page　這一些 page　屬於 active_anon)</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>anon <span class=m>4296462336</span>
+</span></span><span class=line><span class=cl>anon_thp <span class=m>0</span>
+</span></span><span class=line><span class=cl>inactive_anon <span class=m>36864</span>
+</span></span><span class=line><span class=cl>active_anon <span class=m>4296425472</span>
+</span></span><span class=line><span class=cl>workingset_refault_anon <span class=m>0</span>
+</span></span><span class=line><span class=cl>workingset_activate_anon <span class=m>0</span>
+</span></span><span class=line><span class=cl>workingset_restore_anon <span class=m>0</span>
+</span></span></code></pre></td></tr></table></div></div><p>接著我們通過 <code>lru_gen</code> 去控制 page，我們可以通過建立新的 gen 把目前在 active_anon 擠到 inactive_anon 裡面，先查看目前 <code>lru_gen</code>　的資訊</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>memcg   133 /wkgrp  
+</span></span><span class=line><span class=cl>node     0  
+</span></span><span class=line><span class=cl>        14    5208406          9           1    
+</span></span><span class=line><span class=cl>        15    5125504          0           0    
+</span></span><span class=line><span class=cl>        16    5108911    1048932           0    
+</span></span><span class=line><span class=cl>        17    5100847          0           0
+</span></span></code></pre></td></tr></table></div></div><p>可以看到目前 page 都在 young gen 裡面，我們通過以下指令建立新的 gen，我們原先在 young gen 的 page 應該會被擠到 old gen 裡面</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl><span class=nb>echo</span> <span class=s2>&#34;+ 133 0 0 0&#34;</span> &gt; /sys/kernel/debug/lru_gen
+</span></span></code></pre></td></tr></table></div></div><p>可以看到我們的 page 進入到了 old gen 裡面</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>memcg   133 /wkgrp  
+</span></span><span class=line><span class=cl>node     0  
+</span></span><span class=line><span class=cl>        16    5159077        302           1    
+</span></span><span class=line><span class=cl>        17    5151013    1048622           0    
+</span></span><span class=line><span class=cl>        18      33125         17           0    
+</span></span><span class=line><span class=cl>        19      21150          0           0
+</span></span></code></pre></td></tr></table></div></div><p>而 old gen 以及 oldest gen 都是屬於 inactive，我們可以在 <code>/sys/fs/cgroup/wkgrp/memory.stat</code> 中看到</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>anon 4296462336
+</span></span><span class=line><span class=cl>anon_thp 0
+</span></span><span class=line><span class=cl>inactive_anon 4296392704
+</span></span><span class=line><span class=cl>active_anon 69632
+</span></span><span class=line><span class=cl>workingset_refault_anon 0
+</span></span><span class=line><span class=cl>workingset_activate_anon 0
+</span></span><span class=line><span class=cl>workingset_restore_anon 0
+</span></span></code></pre></td></tr></table></div></div><p>我們可以做一個實驗，我們先嘗試存取資料，接著把這一些資料通過 lru_gen　進行 swapout，接著再次進行存取，概念上為以下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>[root@apt]/home/fedora# echo &#34;+ 133 0 0 0&#34; &gt; /sys/kernel/debug/lru_gen  
+</span></span><span class=line><span class=cl>[root@apt]/home/fedora# echo &#34;+ 133 0 0 0&#34; &gt; /sys/kernel/debug/lru_gen  
+</span></span><span class=line><span class=cl>[root@apt]/home/fedora# echo &#34;- 133 0 45 200&#34; &gt; /sys/kernel/debug/lru_gen
+</span></span></code></pre></td></tr></table></div></div><p>先把我們的 hot page 通過新建 gen 移動到 oldtest gen，接著直接回收最後一個世代，200 表示 swapiness，將其換出到 swapspace 中，我們可以通過 <code>cat /sys/fs/cgroup/wkgrp/memory.swap.current</code> 查看 swapspace 大小，以下為測試程式碼</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=cp>#define _GNU_SOURCE
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;pthread.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;stdint.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;stdio.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;stdlib.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;string.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;time.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;unistd.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#define STEP 4096
+</span></span></span><span class=line><span class=cl><span class=cp>#define NSEC(ns) ((double)(ns) / 1e9)
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=kt>uint8_t</span> <span class=o>*</span><span class=n>cold</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=kt>void</span> <span class=nf>touch</span><span class=p>(</span><span class=kt>char</span> <span class=o>*</span><span class=n>buf</span><span class=p>,</span> <span class=kt>size_t</span> <span class=n>sz</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>for</span> <span class=p>(</span><span class=kt>size_t</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>sz</span><span class=p>;</span> <span class=n>i</span> <span class=o>+=</span> <span class=n>STEP</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>buf</span><span class=p>[</span><span class=n>i</span><span class=p>]</span><span class=o>++</span><span class=p>;</span> <span class=cm>/* read-modify-write */</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>static</span> <span class=kt>uint64_t</span> <span class=nf>mono_ns</span><span class=p>(</span><span class=kt>void</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>struct</span> <span class=n>timespec</span> <span class=n>ts</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=nf>clock_gettime</span><span class=p>(</span><span class=n>CLOCK_MONOTONIC_RAW</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>ts</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=p>(</span><span class=kt>uint64_t</span><span class=p>)</span><span class=n>ts</span><span class=p>.</span><span class=n>tv_sec</span> <span class=o>*</span> <span class=mf>1e9</span> <span class=o>+</span> <span class=n>ts</span><span class=p>.</span><span class=n>tv_nsec</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>(</span><span class=kt>int</span> <span class=n>argc</span><span class=p>,</span> <span class=kt>char</span> <span class=o>**</span><span class=n>argv</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kt>size_t</span> <span class=n>cold_mib</span> <span class=o>=</span> <span class=n>argc</span> <span class=o>&gt;</span> <span class=mi>1</span> <span class=o>?</span> <span class=nf>strtoull</span><span class=p>(</span><span class=n>argv</span><span class=p>[</span><span class=mi>1</span><span class=p>],</span> <span class=nb>NULL</span><span class=p>,</span> <span class=mi>10</span><span class=p>)</span> <span class=o>:</span> <span class=mi>4096</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=kt>int</span> <span class=n>wait_sec</span> <span class=o>=</span> <span class=n>argc</span> <span class=o>&gt;</span> <span class=mi>2</span> <span class=o>?</span> <span class=nf>atoi</span><span class=p>(</span><span class=n>argv</span><span class=p>[</span><span class=mi>2</span><span class=p>])</span> <span class=o>:</span> <span class=mi>30</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=kt>size_t</span> <span class=n>cold_sz</span> <span class=o>=</span> <span class=n>cold_mib</span> <span class=o>*</span> <span class=p>(</span><span class=mi>1UL</span> <span class=o>&lt;&lt;</span> <span class=mi>20</span><span class=p>);</span> <span class=cm>/* bytes */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=cm>/* -------- malloc &amp; fault-in -------- */</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=nf>posix_memalign</span><span class=p>((</span><span class=kt>void</span> <span class=o>**</span><span class=p>)</span><span class=o>&amp;</span><span class=n>cold</span><span class=p>,</span> <span class=mi>4096</span><span class=p>,</span> <span class=n>cold_sz</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nf>perror</span><span class=p>(</span><span class=s>&#34;alloc&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=nf>memset</span><span class=p>(</span><span class=n>cold</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>cold_sz</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=nf>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;PID=%d cold=%zu MiB  wait=%d s</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=nf>getpid</span><span class=p>(),</span> <span class=n>cold_mib</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>          <span class=n>wait_sec</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=cm>/* -------- Phase-1: 首次觸碰 -------- */</span>
+</span></span><span class=line><span class=cl>  <span class=nf>touch</span><span class=p>((</span><span class=kt>char</span> <span class=o>*</span><span class=p>)</span><span class=n>cold</span><span class=p>,</span> <span class=n>cold_sz</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nf>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Phase-1 done, cold pages fault-in &amp; active</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=cm>/* -------- Phase-2: 等待 mglru 操作 -------- */</span>
+</span></span><span class=line><span class=cl>  <span class=nf>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Sleep %d s, you may run mglru_ctl now…</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>wait_sec</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nf>sleep</span><span class=p>(</span><span class=n>wait_sec</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=cm>/* -------- Phase-3: 重新觸碰 &amp; 量時間 -------- */</span>
+</span></span><span class=line><span class=cl>  <span class=kt>uint64_t</span> <span class=n>t0</span> <span class=o>=</span> <span class=nf>mono_ns</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>  <span class=nf>touch</span><span class=p>((</span><span class=kt>char</span> <span class=o>*</span><span class=p>)</span><span class=n>cold</span><span class=p>,</span> <span class=n>cold_sz</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=kt>uint64_t</span> <span class=n>t1</span> <span class=o>=</span> <span class=nf>mono_ns</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kt>double</span> <span class=n>sec</span> <span class=o>=</span> <span class=nf>NSEC</span><span class=p>(</span><span class=n>t1</span> <span class=o>-</span> <span class=n>t0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;Re-access %.0f MiB took %.3f s  (%.1f MiB/s)</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=p>(</span><span class=kt>double</span><span class=p>)</span><span class=n>cold_mib</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>         <span class=n>sec</span><span class=p>,</span> <span class=n>cold_mib</span> <span class=o>/</span> <span class=n>sec</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>在不做任何調整的情況如下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>PID=2696594 cold=8192 MiB  wait=10 s
+</span></span><span class=line><span class=cl>Phase-1 done, cold pages fault-in &amp; active
+</span></span><span class=line><span class=cl>Sleep 10 s, you may run mglru_ctl now…
+</span></span><span class=line><span class=cl>Re-access 8192 MiB took 0.046 s  (179475.2 MiB/s)
+</span></span></code></pre></td></tr></table></div></div><p>接著我們嘗試將 hot page swap out</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>PID=2697859 cold=8192 MiB  wait=60 s
+</span></span><span class=line><span class=cl>Phase-1 done, cold pages fault-in &amp; active
+</span></span><span class=line><span class=cl>Sleep 60 s, you may run mglru_ctl now…
+</span></span><span class=line><span class=cl>Re-access 8192 MiB took 2.986 s  (2743.4 MiB/s)
+</span></span></code></pre></td></tr></table></div></div><p>可以看到效能出現了巨大的下滑，因為這時候是從硬碟中讀取資料，從以上證明了 lru_gen 的可行性</p><h3 id=使用-kprobe-觀測-funciton-行為>使用 kprobe 觀測 funciton 行為</h3><p>如果我們想要觀察 kernel function 內部行為，以 MGLRU 為例子，我們可能想要觀察具體進入 lruvec_folio 的 page 一些資訊，如他所在的 gen 等等去驗證我們的推論是否正確，對於這些情況，我們有許多方式可以實現對 kernel function 的觀察，以下分成靜態與動態的方式</p><h3 id=靜態追蹤>靜態追蹤</h3><p>Tracepoint: 為 Linux Kernel 中一種靜態插樁 (static instrumentation) 機制，可以在原始碼中函式部份預先定義 hook points，用來監控與追蹤 kernel 的行為。Tracepoint 在編譯時會嵌入到 kernel 中，可以使用 <code>sudo perf list tracepoint</code> 查看可用的 tracepoint。</p><p>不過缺點也很明顯，對於沒有預先定義 tracepoint 的 function，我們會需要修改並重新編譯 kernel。</p><h3 id=動態追蹤>動態追蹤</h3><p>kprobe: 可以動態的在 kernel funciton 中任意位置插入探針，可以無須重新編譯 kernel，不需要修改 kernel code。</p><p>對於已經在 kallsym 中的 function，我們可以很輕鬆直接使用 symbol name 去 kprobe，但是對於不在 kallsym 的 function，如一些被 compiler 優化掉的 symbol 或是 inline，我們會需要得到該 function 的 function address，具體作法為我們需要 kernel-debuginfo 配合 DWARF 去得出該 function 的地址，這點是從 <code>perf probe</code> 中意外發現的，發現 <code>perf probe -L &lt;function_name></code> 可以印出 function 的 source code，於是我嘗試以下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ sudo perf probe -L try_to_inc_max_seq                                       
+</span></span><span class=line><span class=cl>Failed to find the path <span class=k>for</span> the kernel: No such file or directory
+</span></span><span class=line><span class=cl>  Error: Failed to show lines.
+</span></span></code></pre></td></tr></table></div></div><p>出現以上錯誤，嘗試使用 <code>strace</code> 對 <code>perf probe</code> 進行追蹤後發現是依賴於 debug-info，以下為 <code>strace perf probe -L &lt;function_name></code> 的輸出</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>- openat(AT_FDCWD, &#34;/usr/lib/debug/usr/lib/debug/lib/modules/6.14.0-63.fc42.x86_64/vmlinux.debug&#34;, O_RDONLY)
+</span></span><span class=line><span class=cl>- openat(AT_FDCWD, &#34;/usr/lib/debug/usr/lib/debug/lib/modules/6.14.0-63.fc42.x86_64/vmlinux&#34;, O_RDONLY)
+</span></span><span class=line><span class=cl>- openat(AT_FDCWD, &#34;/usr/lib/debug/lib/modules/6.14.0-63.fc42.x86_64/.debug/vmlinux&#34;, O_RDONLY)
+</span></span><span class=line><span class=cl>- openat(AT_FDCWD, &#34;/usr/lib/debug/.build-id/a9/1e7e0ceeb1cc106e37bf89b80a69b39844a559.debug&#34;, O_RDONLY)
+</span></span></code></pre></td></tr></table></div></div><p>以 fedora 為例子，通過以下指令我們可以得到 kernel-debuginfo</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ sudo dnf --enablerepo<span class=o>=</span>fedora-debuginfo,updates-debuginfo install kernel-debuginfo
+</span></span></code></pre></td></tr></table></div></div><p>接著再次使用 <code>strace perf probe -L &lt;function_name></code> 即可正常執行，並且還能夠列出不在 System.map 以及 kallsyms 裡面的 function 資訊，於是我想要通過 debuginfo 去得到那些被優化掉的 function 的記憶體地址</p><p>debuginfo 會位於 <code>/usr/lib/debug/lib/modules/$(uname -r)/vmlinux</code> 底下，接著我們可以通過以下腳本去得到任一 function 的記憶體地址</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-py data-lang=py><span class=line><span class=cl><span class=kn>import</span> <span class=nn>subprocess</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>sys</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>re</span>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=nn>os</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>get_function_start_address</span><span class=p>(</span><span class=n>function_name</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>    <span class=n>kernel_release</span> <span class=o>=</span> <span class=n>os</span><span class=o>.</span><span class=n>uname</span><span class=p>()</span><span class=o>.</span><span class=n>release</span>
+</span></span><span class=line><span class=cl>    <span class=n>vmlinux_path</span> <span class=o>=</span> <span class=sa>f</span><span class=s2>&#34;/usr/lib/debug/lib/modules/</span><span class=si>{</span><span class=n>kernel_release</span><span class=si>}</span><span class=s2>/vmlinux&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=n>vmlinux_path</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Using gdb read vmlinux and get function address</span>
+</span></span><span class=line><span class=cl>    <span class=n>cmd</span> <span class=o>=</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;gdb&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;-batch&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;-ex&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=sa>f</span><span class=s2>&#34;info line </span><span class=si>{</span><span class=n>function_name</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=n>vmlinux_path</span>
+</span></span><span class=line><span class=cl>    <span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>output</span> <span class=o>=</span> <span class=n>subprocess</span><span class=o>.</span><span class=n>check_output</span><span class=p>(</span><span class=n>cmd</span><span class=p>,</span> <span class=n>stderr</span><span class=o>=</span><span class=n>subprocess</span><span class=o>.</span><span class=n>STDOUT</span><span class=p>,</span> <span class=n>text</span><span class=o>=</span><span class=kc>True</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>except</span> <span class=n>subprocess</span><span class=o>.</span><span class=n>CalledProcessError</span> <span class=k>as</span> <span class=n>e</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=nb>print</span><span class=p>(</span><span class=s2>&#34;GDB execution failed:&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=nb>print</span><span class=p>(</span><span class=n>e</span><span class=o>.</span><span class=n>output</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>None</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>match</span> <span class=o>=</span> <span class=n>re</span><span class=o>.</span><span class=n>search</span><span class=p>(</span><span class=sa>r</span><span class=s2>&#34;starts at address ([\w]+)&#34;</span><span class=p>,</span> <span class=n>output</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=k>match</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=k>match</span><span class=o>.</span><span class=n>group</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=nb>print</span><span class=p>(</span><span class=s2>&#34;Failed to find start address.&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>None</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s2>&#34;__main__&#34;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>)</span> <span class=o>!=</span> <span class=mi>2</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Usage: sudo python3 </span><span class=si>{</span><span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span><span class=si>}</span><span class=s2> &lt;function_name&gt;&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>sys</span><span class=o>.</span><span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>function</span> <span class=o>=</span> <span class=n>sys</span><span class=o>.</span><span class=n>argv</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>    <span class=n>addr</span> <span class=o>=</span> <span class=n>get_function_start_address</span><span class=p>(</span><span class=n>function</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>addr</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;</span><span class=si>{</span><span class=n>function</span><span class=si>}</span><span class=s2> starts at address: </span><span class=si>{</span><span class=n>addr</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>有了 function address 之後，我們就可以用 kprobe 去探測並觀察其內部資料結構資訊。</p><p>使用 kprobe 有以下兩種方式</p><ul><li>使用 <code>bpftrace</code></li><li>使用 kernel module</li></ul><h4 id=使用-kernel-module>使用 kernel module</h4><p>以 <code>try_to_shrink_lruvec</code> 為例子，如果我們想要得知 <code>lruvec</code> 裡面具體 page 的情況或是 gen 等等，我們可以通過以下 kprobe pre handler 存取 function 內的變數</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>static</span> <span class=kt>int</span> <span class=nf>handler_pre</span><span class=p>(</span><span class=k>struct</span> <span class=n>kprobe</span> <span class=o>*</span><span class=n>p</span><span class=p>,</span> <span class=k>struct</span> <span class=n>pt_regs</span> <span class=o>*</span><span class=n>regs</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=n>lruvec</span> <span class=o>*</span><span class=n>lruvec</span> <span class=o>=</span> <span class=nb>NULL</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=n>lru_gen_folio</span> <span class=o>*</span><span class=n>lrugen</span> <span class=o>=</span> <span class=nb>NULL</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>gen</span><span class=p>,</span> <span class=n>type</span><span class=p>,</span> <span class=n>zone</span><span class=p>,</span> <span class=n>page_refcount</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>lruvec</span> <span class=o>=</span> <span class=p>(</span><span class=k>struct</span> <span class=n>lruvec</span> <span class=o>*</span><span class=p>)</span><span class=n>regs</span><span class=o>-&gt;</span><span class=n>di</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>lruvec</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>pr_warn</span><span class=p>(</span><span class=s>&#34;lruvec is NULL</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>lrugen</span> <span class=o>=</span> <span class=o>&amp;</span><span class=n>lruvec</span><span class=o>-&gt;</span><span class=n>lrugen</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>lrugen</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>pr_warn</span><span class=p>(</span><span class=s>&#34;lrugen is NULL</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nf>pr_info</span><span class=p>(</span><span class=s>&#34;[KPROBE] try_to_shrink_lruvec called</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>pr_info</span><span class=p>(</span><span class=s>&#34;[KPROBE] max_seq: %lu</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>lrugen</span><span class=o>-&gt;</span><span class=n>max_seq</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=n>gen</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>gen</span> <span class=o>&lt;</span> <span class=n>MAX_NR_GENS</span><span class=p>;</span> <span class=n>gen</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=n>type</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>type</span> <span class=o>&lt;</span> <span class=n>ANON_AND_FILE</span><span class=p>;</span> <span class=n>type</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>for</span> <span class=p>(</span><span class=n>zone</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>zone</span> <span class=o>&lt;</span> <span class=n>MAX_NR_ZONES</span><span class=p>;</span> <span class=n>zone</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=k>struct</span> <span class=n>list_head</span> <span class=o>*</span><span class=n>head</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=k>struct</span> <span class=n>folio</span> <span class=o>*</span><span class=n>folio</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=k>struct</span> <span class=n>page</span> <span class=o>*</span><span class=n>page</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=kt>long</span> <span class=n>count</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=n>head</span> <span class=o>=</span> <span class=o>&amp;</span><span class=n>lrugen</span><span class=o>-&gt;</span><span class=n>folios</span><span class=p>[</span><span class=n>gen</span><span class=p>][</span><span class=n>type</span><span class=p>][</span><span class=n>zone</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>head</span> <span class=o>||</span> <span class=nf>list_empty</span><span class=p>(</span><span class=n>head</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>                    <span class=k>continue</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=nf>pr_info</span><span class=p>(</span><span class=s>&#34;Generation %d, type %s, zone %d:</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>gen</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                        <span class=p>(</span><span class=n>type</span> <span class=o>==</span> <span class=mi>0</span> <span class=o>?</span> <span class=s>&#34;anon&#34;</span> <span class=o>:</span> <span class=s>&#34;file&#34;</span><span class=p>),</span> <span class=n>zone</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=nf>list_for_each_entry</span><span class=p>(</span><span class=n>folio</span><span class=p>,</span> <span class=n>head</span><span class=p>,</span> <span class=n>lru</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>folio</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                        <span class=nf>pr_warn</span><span class=p>(</span><span class=s>&#34;NULL folio in list</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                        <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                    <span class=p>}</span>
+</span></span><span class=line><span class=cl>                    
+</span></span><span class=line><span class=cl>                    <span class=n>page</span> <span class=o>=</span> <span class=o>&amp;</span><span class=n>folio</span><span class=o>-&gt;</span><span class=n>page</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                    <span class=n>page_refcount</span> <span class=o>=</span> <span class=nf>page_ref_count</span><span class=p>(</span><span class=n>page</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    
+</span></span><span class=line><span class=cl>                    <span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>pfn</span> <span class=o>=</span> <span class=nf>page_to_pfn</span><span class=p>(</span><span class=n>page</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=kt>unsigned</span> <span class=kt>long</span> <span class=kt>long</span> <span class=n>page_phys_addr</span> <span class=o>=</span> <span class=nf>PFN_PHYS</span><span class=p>(</span><span class=n>pfn</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=kt>bool</span> <span class=n>dirty</span> <span class=o>=</span> <span class=nf>PageDirty</span><span class=p>(</span><span class=n>page</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=kt>bool</span> <span class=n>writeback</span> <span class=o>=</span> <span class=nf>PageWriteback</span><span class=p>(</span><span class=n>page</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    
+</span></span><span class=line><span class=cl>                    <span class=nf>pr_info</span><span class=p>(</span><span class=s>&#34;(folio: %px) (page addr: %px) (page phys addr: %px) (page ref count: %d)</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>folio</span><span class=p>,</span> <span class=n>page</span><span class=p>,</span> <span class=n>page_phys_addr</span><span class=p>,</span> <span class=n>page_refcount</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>根據 x86 calling convention 我們知道第一個參數位於 <code>rdi</code> 暫存器中，接著按照 MGLRU 關鍵資料結構，由 <code>lruvec</code> 存取 <code>lrugen</code>，接著依照 <code>gen</code>, <code>type</code>, <code>zone</code> 走訪 folio list 便可以得到 page 資訊。</p><p>接著指定我們要 hook 的 function 以及對應的 pre handler 便完成註冊</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>static</span> <span class=kt>int</span> <span class=n>__init</span> <span class=nf>mglru_monitor_init</span><span class=p>(</span><span class=kt>void</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>ret</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>kp</span><span class=p>.</span><span class=n>symbol_name</span> <span class=o>=</span> <span class=s>&#34;try_to_shrink_lruvec&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>kp</span><span class=p>.</span><span class=n>pre_handler</span> <span class=o>=</span> <span class=n>handler_pre</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>ret</span> <span class=o>=</span> <span class=nf>register_kprobe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>kp</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>ret</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>pr_err</span><span class=p>(</span><span class=s>&#34;register_kprobe failed, returned %d</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>ret</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>ret</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nf>pr_info</span><span class=p>(</span><span class=s>&#34;MGLRU monitor module loaded.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>如果我們要 hook 的 function 的 symbol 在 System.map 中查詢不到，而是使用 Debuginfo 得到的 raw address，則需要使用以下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=k>static</span> <span class=kt>int</span> <span class=n>__init</span> <span class=nf>kprobe_stack_init</span><span class=p>(</span><span class=kt>void</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>kp</span><span class=p>.</span><span class=n>addr</span> <span class=o>=</span> <span class=p>(</span><span class=kt>kprobe_opcode_t</span> <span class=o>*</span><span class=p>)</span><span class=n>FUNCTION_ADDRESS</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>kp</span><span class=p>.</span><span class=n>pre_handler</span> <span class=o>=</span> <span class=n>handler_pre</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>ret</span> <span class=o>=</span> <span class=nf>register_kprobe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>kp</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>...</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>成功執行後我們便可以得到具體進入到 <code>try_to_shrink_lruvec()</code> 的 page 相關資訊，得到以下輸出</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>$ sudo dmesg
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000568<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e480<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e480<span class=o>)</span> <span class=o>(</span>page phys addr: 0000000520392000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000569<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e440<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e440<span class=o>)</span> <span class=o>(</span>page phys addr: 0000000520391000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000570<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e400<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e400<span class=o>)</span> <span class=o>(</span>page phys addr: 0000000520390000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000571<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e3c0<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e3c0<span class=o>)</span> <span class=o>(</span>page phys addr: 000000052038f000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000572<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e380<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e380<span class=o>)</span> <span class=o>(</span>page phys addr: 000000052038e000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000574<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e340<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e340<span class=o>)</span> <span class=o>(</span>page phys addr: 000000052038d000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000575<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e300<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e300<span class=o>)</span> <span class=o>(</span>page phys addr: 000000052038c000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000576<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e2c0<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e2c0<span class=o>)</span> <span class=o>(</span>page phys addr: 000000052038b000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000577<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e280<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e280<span class=o>)</span> <span class=o>(</span>page phys addr: 000000052038a000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl><span class=o>[</span>29971.000578<span class=o>]</span> <span class=o>(</span>folio: ffffea001480e240<span class=o>)</span> <span class=o>(</span>page addr: ffffea001480e240<span class=o>)</span> <span class=o>(</span>page phys addr: 0000000520389000<span class=o>)</span> <span class=o>(</span>page ref count: 1<span class=o>)</span>
+</span></span><span class=line><span class=cl>...
+</span></span></code></pre></td></tr></table></div></div><h4 id=使用-bpftrace>使用 bpftrace</h4><p>可以使用以下 oneline 指令查看給定 function 傳遞的參數</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>sudo bpftrace -e <span class=s1>&#39;kprobe:try_to_shrink_lruvec { $lruvec = (struct lruvec *)arg0; printf(&#34;[KPROBE] try_to_shrink_lruvec called, lruvec: %px, max_seq: %lu\n&#34;, $lruvec, $lruvec-&gt;lrugen.max_seq); }&#39;</span>
+</span></span></code></pre></td></tr></table></div></div><p>或是直接使用 raw function address (如果 function 不在 kernel symbol table，可以使用 <code>sudo bpftrace -l</code> 查詢)</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>sudo bpftrace -e <span class=s1>&#39;kprobe:0xffffffff81684c0c { printf(&#34;arg0=%lx\n&#34;, arg0);}&#39;</span>
+</span></span></code></pre></td></tr></table></div></div><p>或是將以下檔案儲存成 .bt，使用 <code>sudo bpftrace</code> 執行</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=cp>#!/usr/bin/env bpftrace
+</span></span></span><span class=line><span class=cl><span class=cp></span><span class=n>BEGIN</span> 
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;Trace try_to_shrink_lruvec function</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;Press Ctrl+C to stop</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nl>kprobe</span><span class=p>:</span><span class=n>try_to_shrink_lruvec</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=err>$</span><span class=n>lruvec</span> <span class=o>=</span> <span class=p>(</span><span class=k>struct</span> <span class=n>lruvec</span> <span class=o>*</span><span class=p>)</span><span class=n>arg0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=err>$</span><span class=n>lruvec</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[Warning]: lruvec is NULL</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[KPROBE] try_to_shrink_lruvec been called</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[KPROBE] lruvec address: %px</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=err>$</span><span class=n>lruvec</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[KPROBE] timestramp: %lu</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>nsecs</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[KPROBE] process PID: %d, process_name: %s</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>pid</span><span class=p>,</span> <span class=n>comm</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[KPROBE] max_seq: %lu</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=err>$</span><span class=n>lruvec</span><span class=o>-&gt;</span><span class=n>lrugen</span><span class=p>.</span><span class=n>max_seq</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;[KPROBE] call_count: %d</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=o>++</span><span class=err>@</span><span class=n>call_count</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;---</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>END</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;total call_count: %d</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=err>@</span><span class=n>call_count</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=nf>printf</span><span class=p>(</span><span class=s>&#34;End</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>可以看到上面是一個簡單的測試範例，如果我們要對 lruvec 裡面的成員進行遍歷等等，使用 bpftrace 會非常難去實現，因為無法使用變數作為陣列的索引且一些 kernel 中的巨集也無法使用。</p><p>如果只是查看傳遞參數等等，可以快速的使用 bpftrace 進行實現，需要進一步對參數進行解析則使用 Kernel Module 進行實現。</p><h2 id=結論>結論</h2><ul><li>解釋了 MGLRU 改進以及大致運作流程</li><li>運用 Flamegraph/dot-graph 對 kernel 子系統進行分析</li><li>運用 kprobe 對 kernel 某個 function 進行精細分析</li></ul><h2 id=reference>Reference</h2><ul><li><a class=link href="https://www.youtube.com/watch?v=9HvJfN21H9Y&amp;ab_channel=TheLinuxFoundation" target=_blank rel=noopener>MGLRU - Yu Zhao</a></li><li><a class=link href=https://www.kernel.org/doc/html/v6.1/mm/multigen_lru.html target=_blank rel=noopener>Multi-Gen LRU</a></li><li><a class=link href=https://www.kernel.org/doc/html/v6.1/mm/multigen_lru.html target=_blank rel=noopener>Multi-Gen LRU Kernel.org</a></li><li><a class=link href=https://github.com/brendangregg/FlameGraph target=_blank rel=noopener>brendangregg/FlameGraph</a></li><li><a class=link href=https://github.com/jrfonseca/gprof2dot target=_blank rel=noopener>jrfonseca/gprof2dot</a></li><li><a class=link href=https://docs.kernel.org/trace/kprobes.html target=_blank rel=noopener>Linux Kprobe</a></li><li><a class=link href="https://www.youtube.com/watch?v=UVM3WX8Lq2k&amp;ab_channel=KernelRecipes" target=_blank rel=noopener>Kernel Recipes 2017 - Perf in Netflix - Brendan Gregg</a></li></ul></section><footer class=article-footer><section class=article-tags><a href=/tags/mglru/>MGLRU</a>
+<a href=/tags/linux-kernel/>Linux Kernel</a>
+<a href=/tags/tracing/>Tracing</a>
+<a href=/tags/perf/>Perf</a></section><section class=article-copyright><svg class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section></footer></article><div id=gitalk-container></div><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/gitalk@1.7.2/dist/gitalk.css><script src=https://cdn.jsdelivr.net/npm/gitalk@1.7.2/dist/gitalk.min.js></script><script src=https://cdn.jsdelivr.net/npm/blueimp-md5@2.18.0/js/md5.min.js></script><script>const gitalk=new Gitalk({clientID:"Ov23lij78DRsoaL8R1yu",clientSecret:"5ab179141bce2450541712ea80b407edfbbd3efb",repo:"WuTa0209.github.io",owner:"WuTa0209",admin:["WuTa0209"],distractionFreeMode:!1,id:md5(location.pathname),proxy:"https://wuta0209.hank20010209.workers.dev/?https://github.com/login/oauth/access_token"});(function(){const e=["localhost","127.0.0.1"],t=window.location.hostname;if(e.includes(t)){document.getElementById("gitalk-container").innerHTML="Gitalk comments not available by default when the website is previewed locally.";return}gitalk.render("gitalk-container")})()</script><footer class=site-footer><section class=copyright>&copy;
+2020 -
+2025 WuTa Blog</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 建立<br>主題 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.30.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 設計</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

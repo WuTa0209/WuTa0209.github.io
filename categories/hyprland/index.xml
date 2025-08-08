@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Hyprland on WuTa Blog</title><link>https://wuta0209.github.io/categories/hyprland/</link><description>Recent content in Hyprland on WuTa Blog</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Sun, 20 Jul 2025 12:27:11 +0800</lastBuildDate><atom:link href="https://wuta0209.github.io/categories/hyprland/index.xml" rel="self" type="application/rss+xml"/><item><title>Hyprland VSCode 無法輸入中文解決</title><link>https://wuta0209.github.io/p/hyprland-vscode-%E7%84%A1%E6%B3%95%E8%BC%B8%E5%85%A5%E4%B8%AD%E6%96%87%E8%A7%A3%E6%B1%BA/</link><pubDate>Sun, 20 Jul 2025 12:27:11 +0800</pubDate><guid>https://wuta0209.github.io/p/hyprland-vscode-%E7%84%A1%E6%B3%95%E8%BC%B8%E5%85%A5%E4%B8%AD%E6%96%87%E8%A7%A3%E6%B1%BA/</guid><description>&lt;h2 id="修改-etcenvironment-以及-etcprofile">修改 /etc/environment 以及 /etc/profile
+&lt;/h2>&lt;p>以下為 &lt;code>/etc/environment&lt;/code> 內容&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-fallback" data-lang="fallback">&lt;span class="line">&lt;span class="cl">XMODIFIERS=@im=fcitx
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">GTK_IM_MODULE=fcitx
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">QT_IM_MODULE=fcitx
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>以下為 &lt;code>/etc/profile&lt;/code> 內容&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span class="line">&lt;span class="cl">&lt;span class="k">export&lt;/span> &lt;span class="n">XMODIFIERS&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="err">@&lt;/span>&lt;span class="n">im&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">fcitx&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">export&lt;/span> &lt;span class="n">GTK_IM_MODULE&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">fcitx&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">export&lt;/span> &lt;span class="n">QT_IM_MODULE&lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="n">fcitx&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>接著只要執行 &lt;code>code --enable-wayland-ime&lt;/code> 就可以正常輸入中文了&lt;/p>
+&lt;h2 id="使用-alias">使用 alias
+&lt;/h2>&lt;p>我這邊使用的 shell 是 zsh，加上 alias 讓上面的參數永久有效&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-shell" data-lang="shell">&lt;span class="line">&lt;span class="cl">$ &lt;span class="nb">echo&lt;/span> &lt;span class="s2">&amp;#34;alias code=&amp;#39;code --enable-wayland-ime&amp;#39;&amp;#34;&lt;/span> &amp;gt;&amp;gt; ~/.zshrc
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>
