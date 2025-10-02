@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>NUMA on WuTa Blog</title><link>https://wuta0209.github.io/tags/numa/</link><description>Recent content in NUMA on WuTa Blog</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Thu, 02 Oct 2025 10:52:22 +0800</lastBuildDate><atom:link href="https://wuta0209.github.io/tags/numa/index.xml" rel="self" type="application/rss+xml"/><item><title>Linux_NUMA_System</title><link>https://wuta0209.github.io/p/linux_numa_system/</link><pubDate>Thu, 02 Oct 2025 10:52:22 +0800</pubDate><guid>https://wuta0209.github.io/p/linux_numa_system/</guid><description>&lt;p&gt;對於大多數系統，記憶體之間沒有什麼差別，每個記憶體分頁都和其他分頁一樣好，但是在 NUMA 系統中，記憶體和目前正在執行的 process 之間的距離是需要考慮的，如果一個 process 不斷的存取遠端節點上的頁面，則很有可能導致效能大幅下降。對於 NUMA 系統需要特別考慮本地記憶體，因為他具有最小延遲以及最佳頻寬的特性。&lt;/p&gt;
+&lt;p&gt;kernel 有個很重要的任務便是為 process 分配記憶體，使得該 process 能夠以最高效能執行，此外，kernel 有許多機制可以用來確認節點的位置，目的是為了確保以最小化 NUMA 距離的方式分配記憶體，在執行 process 期間，locality 可能會受到許多因素影響，如 scheduler, memory allocation 等等，因此 kernel 需要能夠在 process 執行時移動記憶體頁面，這稱為 [[page migration (頁面遷移)]]&lt;/p&gt;
+&lt;p&gt;關於記憶體分配也可以通過 process 本身建立記憶體的策略進行控制，例如 process 可以知道使用的記憶體位於哪一個節點等等。&lt;/p&gt;
+&lt;h3 id="numa"&gt;[[NUMA]]
+&lt;/h3&gt;&lt;p&gt;NUMA 為非一致性記憶體存取，隨著處理器數量增加，NUMA 技術越來越重要，因為處理器數量增加對於構建 UMA 系統會變得越來越困難，NUMA 系統與一般具有多處理器的常規系統差別在於一些記憶體是屬於處理器的本地記憶體，可以有最小的延遲時間和最高 throughput，而其他記憶體屬於遠端的，性能上不如本地記憶體，延遲更大，更小的 throughput。&lt;/p&gt;
+&lt;p&gt;下面將會介紹在沒有 NUMA 情況下記憶體管理是如何運作的，然而看到記憶體管理機制在考慮 NUMA 的情況做出了哪一些調整，接著是高效率分配記憶體會遇到的問題，然後討論本地記憶體回收以及記憶體遷移的問題。&lt;/p&gt;
+&lt;p&gt;最後看到 Linux process 如何手動控制 NUMA 系統中記憶體分配，使用的方法首先是 memory policies，以及 cpusets。&lt;/p&gt;
+&lt;h3 id="example-of-numa-system"&gt;Example of NUMA system
+&lt;/h3&gt;&lt;p&gt;對於 SMP (Symmetric Multi-Processor) 以及 UP (Single Processor) 系統來說，記憶體是統一的，也就是存取所有記憶體有相同的成本。在 NUMA 系統中會因為 NUMA 距離而有所差異，優化 NUMA 系統上執行的應用程式本質上我們希望以最佳效能的放置應用程式使用到的資料結構等等。&lt;/p&gt;
+&lt;p&gt;關於 NUMA 距離 (NUMA distance)，kernel 會藉由 ACPI (Advanced Configuration and Power Interface) 以及 SLIT (System Locality Information Table) 來獲得。根據 ACPI 的標準，SLIT 表中用於常規 SMP 模式的記憶體存取和本地 NUMA 距離的值被標準化為 10，也就是本地記憶體存取定義為 10，其他距離會根據這個相對值來決定，例如跨節點的 NUMA 存取距離會比 10 還要大。&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://wuta0209.github.io/p/linux_numa_system/1.png"
+width="647"
+height="312"
+srcset="https://wuta0209.github.io/p/linux_numa_system/1_hu_ff9ea0d35bd9c316.png 480w, https://wuta0209.github.io/p/linux_numa_system/1_hu_cb1ef2a9a283b88d.png 1024w"
+loading="lazy"
+alt="“NUMA 模型圖”"
+class="gallery-image"
+data-flex-grow="207"
+data-flex-basis="497px"
+&gt;&lt;/p&gt;
+&lt;p&gt;上面這是一張 NUMA 模型圖，灰色為一個 NUMA 節點，這一些 NUMA 節點藉由 NUMA Interconnect 來連結。每一個 NUMA 節點有兩個 processors，以及一個 local memory 和 cachelines&lt;/p&gt;
+&lt;p&gt;假設如圖所示，有一個 process 在 Node 2 上面的 4 號 CPU 上面執行，如果我們存取本地記憶體，則 NUMA 距離為 10。該 process 在 Node 2 上面執行，因此放在 Node 2 上的記憶體對於我們來說就是本地記憶體，距離為 10，這是可能的最小 NUMA 距離。&lt;/p&gt;
+&lt;p&gt;如果 CPU 4 上執行的 process 要存取 Node1 上面的記憶體，則需要通過 NUMA interlink 進行存取，並且需要將結果移動回到本地，這比起存取本地節點上的記憶體來慢的許多。假設存取 Node1 上面記憶體的 NUMA 距離為 14，表示[[遠端存取]] 是本地存取的 1.4 倍。NUMA 距離是抽象概念，會隨著硬體技術和 NUMA 互連速度有所改變，較快互連速度可降低遠程存取的延遲。&lt;/p&gt;
+&lt;p&gt;在使用 NUMA 節點時也需要特別注意該節點外聯的 I/O 設備，例如在 Node1 上面執行的 Process 不需要經過 NUMA interlink 來存取外部設備，同樣的 Node4 也有差不多的狀況。&lt;/p&gt;
+&lt;h3 id="關於-linux-mememory-management"&gt;關於 Linux Mememory Management
+&lt;/h3&gt;&lt;p&gt;&lt;img src="https://wuta0209.github.io/p/linux_numa_system/2.png"
+width="498"
+height="470"
+srcset="https://wuta0209.github.io/p/linux_numa_system/2_hu_51fd1c245e01481c.png 480w, https://wuta0209.github.io/p/linux_numa_system/2_hu_8be1bfbf3f9dd084.png 1024w"
+loading="lazy"
+alt="“Linux Memory Management 的概念圖”"
+class="gallery-image"
+data-flex-grow="105"
+data-flex-basis="254px"
+&gt;&lt;/p&gt;
+&lt;p&gt;上面是簡單的 Linux Memory Management 的概念圖，核心部分為為 page allocator，page allocator 以 page 為大小分配一塊又一塊的記憶體。&lt;/p&gt;
+&lt;p&gt;通常 page 大小為 4KB，在 Itanium 上面可能為 16k。所有其他記憶體分配器都是某種程度上基於 page allocator 的，並且從 page allocator 管理的 pool 中取出頁面，頁面可以映射到 process 的 virtual memory space 中，通常映射到 userspace 的 page 有兩種使用方式&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;一種是用於 anon page 或是說 [[anon memory]]，不和檔案關聯，通常用於變數，stack, heap 等等，anon page 比較輕量，通常比 file backed pages 還要高效，因為不需要映射到記憶體 (映射到記憶體的頁面需要經過序列化才可以存取)。如果記憶體不足時，可以將 anon page swap 出去，不過這會增加未來處理該頁面所需要付出的開銷&lt;/li&gt;
+&lt;li&gt;另外為 page cache 或是 buffer, 通常這一些會儲存在一些輔助儲存媒介上，如硬碟等等，如果記憶體面臨壓力或是資源不足時，則 page cache 可能被移除，因為 page cache 可以之後通過硬碟進行恢復。page cache 包含 process 中的可執行程式碼，可執行程式碼可以通過 mmap 映射到其他 memory space 中。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;kernel 本身也需要一些 page 來儲存一些 meta data，如用於 fs 的緩衝區，此外 kernel 還需要為不同大小的 struct 分配記憶體，這些結構使用的單位可能不是以 page 為大小。為此，有了 slab 分配器，slab 分配器從頁面分配器中查詢單個 page 或是連續的 page，接著運用自己的內部邏輯，根據 kernel 或是 driver 分配不同大小的記憶體區塊。 slab 分配器使用了許多高校緩衝技術，對於小物件的記憶體分配來說，性能非常的好。slab 主要用在檔案被開啟的相關訊息，或是最近使用的檔案名稱，把這一些資訊緩衝起來加速 fs 查詢操作，或是其他如 kernel 中用的 lock, 某些物件的狀態等等。&lt;/p&gt;
+&lt;p&gt;device driver 會利用 page allocator 以及 slab allocator 來分配記憶體和管理 device，device driver 根據所需要的 page sized 還有其他不同的變體，如 vmalloc，可以分配比較大的記憶體 chunks，這些記憶體塊在 kernel context 中看起來似乎連續，但實際上在物理上並不是連續的。vmalloc 可以為大塊記憶體產生出幾乎連續的記憶體。vmalloc 即便遇到系統碎片化等問題，如果 page allocator 無法提供物理上連續的記憶體，這時候就可以使用 vmalloc 處理。vmalloc 在 kernel space 上記憶體連續，但是在物理記憶體地址上不是連續的。但 vmalloc 也有其缺點，通常需要通過 page table 進行轉換，與直接從 page allocator 或的物理地址相比，這樣轉換多了 overhead，且 vmalloc 只能用在 kernel 中，無法映射到 userspace 的程式。&lt;/p&gt;
+&lt;p&gt;對於 PCI 設備，通常會使用 dma_alloc_coherent 函數，這是專門用於 DMA 操作的記憶體，DMA 記憶體有幾個特點，例如一致性，DMA 記憶體對 CPU 和 PCI 等設備保持一致性，這表示不需要額外的 buffer 或是 cache 用來同步操作。不同硬體平台對於 DMA 記憶體要求可能˙不同，如記憶體對齊，記憶體地址範圍或是映射方式，dma_alloc_coherent 獲得的記憶體很大程度依賴於底層硬體實現。有些硬體可能支援使用 Huge Page 提升 DMA 效能等等&lt;/p&gt;
+&lt;p&gt;以下為關於 Linux 記憶體分配的相關 API&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://wuta0209.github.io/p/linux_numa_system/3.png"
+width="774"
+height="261"
+srcset="https://wuta0209.github.io/p/linux_numa_system/3_hu_5809e364367294cc.png 480w, https://wuta0209.github.io/p/linux_numa_system/3_hu_f31bb31122ec66b7.png 1024w"
+loading="lazy"
+alt="“Linux 記憶體分配的相關 API”"
+class="gallery-image"
+data-flex-grow="296"
+data-flex-basis="711px"
+&gt;&lt;/p&gt;
+&lt;h3 id="關於-numa-記憶體"&gt;關於 NUMA 記憶體
+&lt;/h3&gt;&lt;p&gt;在 NUMA 系統中每個節點的記憶體是單獨管理的，每個節點都存在於 page pools 中。每個節點都與 swapper thread 所關聯，用來處理記憶體回收。節點中的每個記憶體地址範圍稱為分配區域。&lt;/p&gt;
+&lt;p&gt;在 Linux 中有一個機制稱為 zone structure, 裡面包含 free list 存放可以使用的記憶體分頁，zone 結構是 Linux kernel 用來組織以及管理物理記憶體的一種結構&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;ZONE_DMA: 低記憶體地址記憶體，用來支援需要特定記憶體區域的 DMA device&lt;/li&gt;
+&lt;li&gt;ZONE_NORMAL: 普通記憶體區域，用於 kernel 和 應用程式的記憶體分配&lt;/li&gt;
+&lt;li&gt;ZONE_HIGHMEM: 主要用於 32 bit 系統
+而回收策略部分，使用 active list 以及 inactive list 管理回收機制，page 會在這兩個 list 之間移動以確認哪一些 page 可以回收，如果存取位於 inactive list 裡面的 page，則該 page 會移動到 active list。swapper 會將 page 從 active list 移動到 inactive list，如果遇到記憶體資源吃緊時，會從 inactive list 末端開始回收 page。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果我們在 NUMA 上發出請求分配記憶體的請求，我們將需要決定從哪一個節點上的哪個 pool 去得到記憶體。如果沒有 cpuset 限制，NUMA 系統會嘗試將記憶體分配到 process 正在執行的節點上，原因為新分配的記憶體通常在分配之後很常被使用，這個結論可以從 [[TPP Transparent Page Placement for CXL-Enabled Tiered-Memory]] 得知，因為他是 hot 的，把他放在本地記憶體是合理的。&lt;/p&gt;
+&lt;p&gt;但有可能我們需要的記憶體超過目前節點所能夠提供的數量，我們需要某一些機制讓我們能夠指定記憶體應該分配在哪一些節點，避免單一節點過載等等。或是一些特殊場景，如 driver 開發者已經知道某個資料結構不會那麼常被存取，或是其他節點會更頻繁的存取該結構，則分配在本地節點就不會是最佳解了。為了應對更佳玲羅的需求，NUMA 中會有帶有 &lt;code&gt;_node&lt;/code&gt; 後綴的函數，為 NUMA 系統使用的分配器，例如 kmalloc_node() 可以直接分配記憶體在目標節點上。以下表格整理了 NUMA 相關記憶體分配器&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://wuta0209.github.io/p/linux_numa_system/4.png"
+width="777"
+height="342"
+srcset="https://wuta0209.github.io/p/linux_numa_system/4_hu_23baccbdd1f23da1.png 480w, https://wuta0209.github.io/p/linux_numa_system/4_hu_af40667aaf90ffb9.png 1024w"
+loading="lazy"
+alt="“NUMA 分配器”"
+class="gallery-image"
+data-flex-grow="227"
+data-flex-basis="545px"
+&gt;&lt;/p&gt;
+&lt;h3 id="最佳應用-numa-的應用程式特徵"&gt;最佳應用 NUMA 的應用程式特徵
+&lt;/h3&gt;&lt;p&gt;只利用單一節點資源的小型應用程式可以利用本地節點的所有元素來實現最佳速度執行。這個應用程式如果使用的記憶體不超過單一節點可以提供的記憶體量，且使用的 CPU 數量不超過一個節點可以提供的 CPU 數量。&lt;/p&gt;
+&lt;h3 id="關於多節點應用程式"&gt;關於多節點應用程式
+&lt;/h3&gt;&lt;p&gt;如果本地節點的資源不足以供應給一個應用程式使用，則我們勢必需要存取到非本地節點的資源，對於應用程式中的資源，大致上可以分成 Thread specific data, Shared read/write data, Shared read/only data 這三種，這三種有以下幾種最佳分配記憶體的方式可以參考&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Thread Specific Data: 當資料只被本地處理器存取時，可以把它視為本地的資料，因為 Thread Specific Data 不需要跨節點進行存取&lt;/li&gt;
+&lt;li&gt;Shared Read/Write: 如果某些資料被所有節點以相同的機率存取，那麼最好的方法就是把資料均勻地分布在所有節點上。這種分配策略通常會通過 interleave memory 或是 memory spreading 實現&lt;/li&gt;
+&lt;li&gt;Shared Read/Only: 當資料是高頻率的 Read/Only 時，最好的策略是讓每一個節點都有一份自己的拷貝，這樣每一個節點只要從自己本地節點讀取就可以，省去了跨節點存取的開銷。但需要注意 Linux 不支援直接進行資料的自動複製管理，而是使用 interleave memory 或是 memory spreading 來處理所有 Shared Data。如果應用程式需要這樣的功能，通常需要自己實現&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="關於-linux-中-interleave-memory-memory-spreading"&gt;關於 Linux 中 Interleave Memory, Memory Spreading
+&lt;/h3&gt;&lt;p&gt;Interleave Memory (記憶體交錯): 概念上是將記憶體以 block 的形式平均分布在 NUMA 節點上，每一個 memory block 由不同節點負責存取，從而實現存取上的負載平衡。當多處理器需要頻繁的存取一段記憶體時，使用這個方法可以降低單一節點記憶體控制器的壓力。&lt;/p&gt;
+&lt;p&gt;在 Linux 中 NUMA 策略中的 interleave 模式可以使用 &lt;code&gt;numactl&lt;/code&gt; 工具來設定，詳細 usage 為以下&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-fallback" data-lang="fallback"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;numactl --interleave=all ./program
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;--interleave=all&lt;/code&gt; 指定記憶體將均勻分布在所有 NUMA 節點上&lt;/p&gt;
+&lt;p&gt;在 Kernel 的部分，我們可以使用 &lt;code&gt;alloc_pages_interleave()&lt;/code&gt; 來使用 Interleave Memory 的策略，或是 &lt;code&gt;mbind_range&lt;/code&gt; 等等，詳細可以參考 kernel source 或是 libC 裡面的 &lt;a class="link" href="https://linux.die.net/man/3/numa" target="_blank" rel="noopener"
+&gt;&lt;code&gt;numa.h&lt;/code&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Memory Spreading: 概念上是將記憶體分散到多個節點，但是不會像是 Interleave Memory 那樣以固定交錯模式分布。分散的記憶體分布可以考慮更加靈活的條件，例如節點目前的負載程度等等。可以應用在避免節點資源耗盡，保持系統整理記憶體使用均衡，概念有點像是 Interleave Memory。&lt;/p&gt;
+&lt;p&gt;在 Linux 中通過 autoNUMA 實現 Memory Spreading，這通常不需要顯式設定。&lt;/p&gt;
+&lt;p&gt;如果要手動設定，可以使用以下方式進行設定&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;div class="chroma"&gt;
+&lt;table class="lntable"&gt;&lt;tr&gt;&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code&gt;&lt;span class="lnt"&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class="lntd"&gt;
+&lt;pre tabindex="0" class="chroma"&gt;&lt;code class="language-shell" data-lang="shell"&gt;&lt;span class="line"&gt;&lt;span class="cl"&gt;numactl --preferred&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="m"&gt;0&lt;/span&gt; ./program
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;在上面案例中，優先從節點 0 分配。當節點 0 無法滿足需求時，其他節點的記憶體會作為備用。&lt;/p&gt;
+&lt;p&gt;kernel 裡面 NUMA 平衡機制有位於 &lt;code&gt;mm/page_alloc.c&lt;/code&gt; 裡面的 &lt;code&gt;find_next_best_node&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;對於 NUMA 控制，libC 也有提供一些介面給應用程式使用，如 &lt;code&gt;numa.h&lt;/code&gt; 裡面的 &lt;code&gt;numa_set_interleave_mask&lt;/code&gt;，或是使用 &lt;code&gt;numactl&lt;/code&gt; 這個工具進行控制。而與 kernel 相關 NUMA 控制有 &lt;code&gt;cat /sys/devices/system/node/node*/meminfo&lt;/code&gt;。對於 NUMA 平衡，有 &lt;code&gt;echo 1 &amp;gt; /proc/sys/kernel/numa_balancing&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id="關於-page-cache"&gt;關於 page cache
+&lt;/h3&gt;&lt;p&gt;當 Linux 從硬碟裡面讀取資料時，這些 page 會被 cache 到記憶體裡面，而這部分的記憶體就被稱作 page cache。page cache 主要是用來提高系統效能，減少硬碟 I/O 操作的次數。page cache 不只是用來做 cache，還有以下用途&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Executable Pages: 當程式需要執行某些從硬碟載入的二進位檔案時，這些頁面可能被映射成可執行頁面，也就是從硬碟讀取資料時，這些 page 被 cache 到記憶體裡面時，page 本身具有執行權限&lt;/li&gt;
+&lt;li&gt;Memory Mapped Pages: 某些程式可能會使用 memory-mapped-files，也就是把檔案映射到記憶體，從而實現檔案到記憶體之間的對應，可以直接使用記憶體相關 API 去處理檔案，通常這種方式會用於處理大檔案或是共享檔案。
+page cache 中的某個 page 被映射到某個 process images 之類，即便該 process 被 kill 了，這一些 page 也不會被立即釋放，這一點和 [[anon memory]] 有所不同，也就是 page cache 具有某部分的持久性&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;當一個 process 結束之後，page cache 會繼續留在記憶體&lt;/li&gt;
+&lt;li&gt;這樣的設計是基於空間局部性的考慮，也就是未來可能有其他 process 會需要相同的 page，這些 page 和硬碟的資料有關，基於這樣的假設，之後的 process 就可以減少對於硬碟的 I/O，直接從 page 拿資料，提高系統效能。舉例來說，如果有另外一個 process 需要存取相同的檔案內容，process 可以直接從 page 撈資料。但是當記憶體壓力大時，這一些 page 可能被替換掉，可能是基於 LRU 或是其他策略&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="關於記憶體回收"&gt;關於記憶體回收
+&lt;/h3&gt;&lt;p&gt;以下為 UP 系統以及 SMP 系統簡單的記憶體映射情況&lt;/p&gt;
+&lt;p&gt;&lt;img src="https://wuta0209.github.io/p/linux_numa_system/5.png"
+width="602"
+height="579"
+srcset="https://wuta0209.github.io/p/linux_numa_system/5_hu_94851a9eead92063.png 480w, https://wuta0209.github.io/p/linux_numa_system/5_hu_9b58096262fdc060.png 1024w"
+loading="lazy"
+alt="“記憶體映射”"
+class="gallery-image"
+data-flex-grow="103"
+data-flex-basis="249px"
+&gt;&lt;/p&gt;
+&lt;p&gt;由 process 映射的頁面是 anon page 和 page cache page。當 process 被 kill 時且已經映射的 page cache page 變成未映射的 page cache pages 時，記憶體裡面隨著時間推時會有越來越多的未映射 page cache pages，也就是這一些 page cache 不屬於任何 process，導致 Free memory 減少。&lt;/p&gt;
+&lt;p&gt;當 Free memory 低於作業系統限制時，swapper 開始回收記憶體，如果壓力比較低，且 swapper 運作的頻率並沒有那麼頻繁，則只會釋放 inactive list 裡面的未映射頁面，這樣可以提高 Free memory，且累積的未映射快取頁面可以重新的被利用。&lt;/p&gt;
+&lt;p&gt;如果記憶體壓力增加，swapper 可能會更加激進，例如取消映射到 process 的頁面，或是把 [[anon memory]] 交換到 swap space 中。&lt;/p&gt;
+&lt;h3 id="關於-numa-的記憶體回收"&gt;關於 NUMA 的記憶體回收
+&lt;/h3&gt;&lt;p&gt;在 NUMA 系統中，很少發生全域回收，也就是針對於所有節點的回收機制。因為要觸發全域回收的前提是所有節點記憶體都耗盡，才會觸發 swapper。&lt;/p&gt;
+&lt;p&gt;因此當 Node1 上記憶體耗盡時，標準的 swapper 是不會運作的，因為其他兩個 Node 還有大量的 Free Memory。假設 Node0 沒有足夠的記憶體，可能在 Node0 上面執行的 process 所使用的 [[anon memory]] 等等會在其他節點上，如 Node1。這樣會造成存取延遲。而 NUMA 隨著時間推進，也會面臨到大量記憶體被 unmapped page cache page 所佔用，因此到最後可能會觸發全域回收，但全域回收會影響效能。&lt;/p&gt;
+&lt;p&gt;對於大型 NUMA 系統，有更多的節點和更大的記憶體，觸發全域回收的頻率會更小，但是大型 NUMA 系統更多節點表示有更長的存取路徑，導致更大的 NUMA 延遲。過去為了快速釋放記憶體，會直接全域回收 unmapped page cache page，雖然可以馬上獲得大量的 Free Memory，但是對其他節點會造成不良影響，因為他們可能需要重新從硬碟讀取剛剛被清除了 page (這裡連接到剛剛的空間局部性，雖然是未映射，但是之後 process 可能還是會用到該 page，減少 I/O，但是回收之後這樣就失去 page cache 的意義了 )，而且假設硬碟只有連接到一個 Node，對於其他 Node 復原頁面的開銷會變得十分的巨大，且對 I/O 以及直接連接到 I/O 的 Node 帶來非常大的負擔。&lt;/p&gt;
+&lt;p&gt;對於 Linux，引入了區域回收試圖解決上面這一些問題。當目前 Node 局部記憶體不足，系統會嘗試輕量回收，也就是只釋放未映射的 page cache page，不去影響 anon page 或 active page。區域回收會優先在本地的 Node 做，除非無法滿足記憶體需求時，才會考慮去對其他非本地記憶體做操作。&lt;/p&gt;
+&lt;p&gt;回收本地的 page cache page 是有道理的，page cache page 考慮的是接下來 process 可能會考慮空間局部性用到差不多的檔案，以達到減少 I/O 的作用，但是當記憶體不足時，連 process 都無法載入了，因此優先將 page cache page 釋放，滿足在本地載入 process 的需求，且讓 [[anon memory]] 等等內容都留在本地。&lt;/p&gt;
+&lt;p&gt;關於 Linux 的區域回收機制，可以參考以下 &lt;code&gt;/proc/sys/vm&lt;/code&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;/proc/sys/vm/zone_reclaim_mode&lt;/code&gt;: 用來控制是否啟用區域回收，區域回收就如同上面所說，用於嘗試在本地釋放 unmapped page cache page。當 NUMA 距離不大，存取延遲不明顯時，系統預設關閉 zone_reclaim_mode。如果延遲較高，則會啟用，設置為 1&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;/proc/sys/vm/zone_reclaim_interval&lt;/code&gt;: 用來控制如果沒有成功回收本地的記憶體時，暫停進一步回收的時間，時間單位為秒，也就是暫停進一步掃描本地節點中可回收的記憶體，並在給定時間之後再繼續嘗試&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="關於-numa-interlink-的限制"&gt;關於 NUMA Interlink 的限制
+&lt;/h3&gt;&lt;p&gt;最上面架構我們可以看到 NUMA 架構中，節點之間的記憶體存取可以通過 NUMA interlink 完成，但是這個機制會有以下限制&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;[[cacheline]] 限制: 每個 NUMA 節點只能 cache 有限數量的來自於其他節點的 [[cacheline]]，如果超過這個限制，[[cacheline]] 會被頻繁的替換，導致需要反覆從遠端節點獲得資料，增加存取延遲&lt;/li&gt;
+&lt;li&gt;請求處理能力限制: 每個節點能夠處理跨節點的需求是有限的，當需求過多時，會導致延遲大幅增長，變成瓶頸&lt;/li&gt;
+&lt;li&gt;NUMA interlink 本身頻寬有限，當多個 process 同時存取遠端記憶體時，可能會出現競爭，進而減少了每一個請求的 thoughtput，增加延遲&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="cpuset-控制-page-migration-頁面遷移"&gt;CPUset 控制 [[page migration (頁面遷移)]]
+&lt;/h3&gt;&lt;p&gt;cpuset 用於將 process 與特定的 CPU 和記憶體節點綁定，cpuset 包含多個檔案，如 mems, tasks, memory_migrate, mems 定義該 cpuset 可以存取的記憶體節點集合, tasks 列出該 cpuset 中的 process id。對於遷移整個程式的 page 概念上為把該程式的所有 process 都加入到同一個 cpuset 中，接著修改 &lt;code&gt;mems&lt;/code&gt; 檔案中記憶體節點集合，如果 &lt;code&gt;memory_migrate&lt;/code&gt; 是啟用狀態，則頁面會被自動遷移到新定義的節點。如果是要遷移單個 process 的 page，則將 process 的 pid 寫入到 tasks 檔案中，將該 process 移動到新的 cpuset 中。kernel 會自動進行遷移&lt;/p&gt;
+&lt;p&gt;對於 page migration 除了使用 CPUset 控制以外，也可以使用 migratepages 這個套件，這是 numa_migrate_pages syscall 的前端。&lt;/p&gt;
+&lt;h3 id="更多關於-cpuset"&gt;更多關於 CPUset
+&lt;/h3&gt;&lt;p&gt;cpuset 為 cgroup 的子系統，用於將系統中多個節點劃分成節點集合，從而為應用程式提供獨立執行環境&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;資源隔離: 每個 cpuset 可以限制 cpu 和記憶體限制範圍，應用程式在一個 cpuset 執行，其記憶體分配就被限制在 cpuset 所管轄的節點內，通過這樣的方式，實現 process 存取本地資源&lt;/li&gt;
+&lt;li&gt;應用: 可以應用於多節點系統上如 NUMA 上面執行多個大型應用程式，並對資源獨立管理
+cpuset 提供了記憶體分配控制的功能，如 memory spreading 以及 [[page migration (頁面遷移)]]&lt;/li&gt;
+&lt;li&gt;memory spreading: 如果啟用記憶體分散功能，如 &lt;code&gt;memory_spread_page&lt;/code&gt; 或是 &lt;code&gt;memory_spread_slab&lt;/code&gt;，記憶體分配會使用類似於 round robin 的方式，在 cpuset 範圍內的所有節點分配記憶體&lt;/li&gt;
+&lt;li&gt;如果所有應用程式都位於同一個 cpuset，則整個應用程式可以作為一個單位進行 page migration，可以應用於 NUMA 節點資源的管理，或是對於某些應用程式無法感知 NUMA，無法自行優化其記憶體分配模式，就可以使用此方式降低單一節點記憶體過載問題。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;至於要不要分散記憶體分部，可參考上面說到的應用程式中常見的資料模式，如 read/only, write/only 等等&lt;/p&gt;
+&lt;h3 id="需要面臨的問題"&gt;需要面臨的問題
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;cpuset 和子系統交互可能有問題，如對於 slab 分配器，會使用 array 等去維護自己記憶體的 locality，當 cpu 限制分配節點時，可能導致 slab 沒辦法按照其原本設計從特定節點分配記憶體&lt;/li&gt;
+&lt;li&gt;當 slab 釋放 cache，如 icache 以及 dentry，通常需要釋放大量物件才能夠回收足夠頁面，具體問題描述如下&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;slab 分配器為 kernel 中分配機制，用於管理小型，頻繁分配和釋放，短生命週期的物件。他將記憶體分割成固定物件大小的 page 或 cache，如 icache, dentry。slab 會根據每個 page 儲存的物件數量決定什麼時候釋放記憶體，當 cache page 只有少量沒使用的物件時，這可能會非常的低效，如 slab 頁面有 10 個物件，只有一個物件還在使用，剩下 9 個都已經釋放，該頁面還沒辦法被釋放，導致 slab cache 有大量內部碎裂化的問題&lt;/p&gt;
+&lt;p&gt;另外是回收侷限性，如果記憶體不足或是壓力大，slab 會回收 cache page，但是回收策略可能不僅線單一節點或是具體 slab cache page。通常回收會是全域的，這可能導致回收物件分配在多個 slab page, 而不是集中回收&lt;/p&gt;
+&lt;p&gt;如果回收過多 slab cache 的物件，是否會破壞 cache 的 locality，影響未來的效能&lt;/p&gt;
+&lt;p&gt;上面問題解決方向，大部分會往更細粒度的回收策略進行，希望有一些 API 讓我們可以區分一些情況，針對情況去優化等等&lt;/p&gt;</description></item><item><title>MemProf: A Memory Profiler for NUMA Multicore Systems</title><link>https://wuta0209.github.io/p/memprof-a-memory-profiler-for-numa-multicore-systems/</link><pubDate>Sun, 20 Jul 2025 13:30:35 +0800</pubDate><guid>https://wuta0209.github.io/p/memprof-a-memory-profiler-for-numa-multicore-systems/</guid><description>&lt;h1 id="memprof-a-memory-profiler-for-numa-multicore-systems"&gt;MemProf: a Memory Profiler for NUMA Multicore Systems
+&lt;/h1&gt;&lt;p&gt;source code: &lt;a class="link" href="https://github.com/Memprof/module" target="_blank" rel="noopener"
+&gt;https://github.com/Memprof/module&lt;/a&gt;&lt;/p&gt;
+&lt;h3 id="目標"&gt;目標:
+&lt;/h3&gt;&lt;p&gt;這篇論文是在開發 MemProf 工具，這個工具可以用於分析在 [[NUMA]] 架構底下的應用程式記憶體使用分析，可以提供應用程式在存取遠端記憶體時涉及的 [[thread]] 以及物件的資訊&lt;/p&gt;
+&lt;h3 id="分析的應用程式"&gt;分析的應用程式:
+&lt;/h3&gt;&lt;p&gt;四個應用程式，分別為 FaceRec, Streamcluster, Psearchy, Apache&lt;/p&gt;
+&lt;h3 id="什麼樣的-workload-下-memprof-表現得不錯"&gt;什麼樣的 workload 下 MemProf 表現得不錯?
+&lt;/h3&gt;&lt;p&gt;具有任意生命週期的物件或是不同粒度大小的物件，或是應用程式對於記憶體的存取模式會隨著時間變化的，記憶體管理使用自定義策略的應用程式&lt;/p&gt;
+&lt;h3 id="為什麼需要-memprof"&gt;為什麼需要 MemProf:
+&lt;/h3&gt;&lt;p&gt;NUMA 相比起 UMA，會有記憶體存取的問題，如果我們嘗試存取不在目前 group 底下的記憶體，而是去存取其他 group 底下的記憶體，就會有顯著的時間開銷，換言之，對於 NUMA 架構下執行的應用程式，遠端存取記憶體的操作會嚴重的影響性能，舉例來說，在 node 2 上面執行的 process 去存取 node 1 的記憶體，這是論文中對於遠端存取的定義。而 group 的定義在 Linux 中 node 的定義是相同的，在傳統的 profiler 如 OProfile, Linux Perf, VTune, Memphis 等工具沒有提供關於 NUMA 記憶體存取的資訊，也就是應用程式在哪一個節點上執行，在某個時間點存取了什麼物件，且這個物件位於哪一個節點。&lt;/p&gt;
+&lt;p&gt;雖然上面提及的這一些 profiler 有一些可以提供關於 global static memory object 的存取資訊，但是對於實際上的 workload 而言，這一些物件存取比率佔據所有記憶體存取事件中不到 4% 的比例，而對於非 global static memory object 的存取，上面提到的這一些分析器使用的方式是找一個目標記憶體地址，也許這個記憶體地址關連到某一個物件，然後追蹤這個記憶體地址涉及的存取指令。&lt;/p&gt;
+&lt;p&gt;而 MemProf 相比起上面這一些工具，可以針對一個遠端的記憶體地址在被存取時所關聯的 thread 以及 object&lt;/p&gt;
+&lt;h3 id="memprof-實作部分"&gt;MemProf 實作部分
+&lt;/h3&gt;&lt;p&gt;實作上依賴於 kernel module 用來蒐集資訊，以及使用一些 user space 上的 library 作一些資訊塞選，filiter 的操作。對於監聽記憶體存取事件，MemProf 使用 Instruction-Based Sampling (ISB) 的技術進行採樣&lt;/p&gt;
+&lt;h3 id="定義應用程式對於-numa-性能負面影響的存取模式"&gt;定義應用程式對於 NUMA 性能負面影響的存取模式
+&lt;/h3&gt;&lt;p&gt;&lt;img src="https://wuta0209.github.io/p/memprof-a-memory-profiler-for-numa-multicore-systems/img.png"
+width="343"
+height="225"
+srcset="https://wuta0209.github.io/p/memprof-a-memory-profiler-for-numa-multicore-systems/img_hu_b47965675324574b.png 480w, https://wuta0209.github.io/p/memprof-a-memory-profiler-for-numa-multicore-systems/img_hu_664688d483928dd5.png 1024w"
+loading="lazy"
+alt="img"
+class="gallery-image"
+data-flex-grow="152"
+data-flex-basis="365px"
+&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;第一種情況 (Remote usage after allocation) :當一個物件的記憶體是由 T1 所分配，分配的物件位於 N1 上，接著之後這物件被 T2 所存取，並在 N2 上面執行，這種存取模式通常會出現在具有生產者，消費者模型的應用程式中。要優化這個情況最簡單的方式就是直接把物件的記憶體分配在 N2 上，通常這種解法需要使用 NUMA-aware allocation functions 來達成，另外一種方式就是在 T2 開始存取資料之前通過 system call 去搬移資料，前提是不能夠帶來更大的 overhead 或是可以平均的分攤掉這個 overhead，像是 &lt;code&gt;move_pages&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;第二種情況 (Alternate remote accesses to an object): 有多個 thread 隨時間變化去存取一個物件，以圖上的例子是有 T1, T2, T3 等等，而物件位於 N1 上，一個可以使用的作法是將 T1, T2, T3 綁定到 N1 上面執行，這一點可以用 CPU affinity 設定，如此可以避免 remote memory access，具體的作法為 thread 的 CPU affinity 設置只能在 N1 上面的 4 個核心上面執行，假設 N1 上面有 4 個核心，則 T1, T2, T3 嘗試存取該物件時，因為 thread 綁定在 N1 上，記憶體存取屬於本地存取。或是如果存取有一定的時間規律性，我們預測並根據時間預先對物件進行遷移&lt;/li&gt;
+&lt;li&gt;第三種情況 (Concurrent remote accesses to an object): 一個物件在一個時間段被多個執行序並行存取，如果我們使用之前的優化方式，直接將 T2 綁定在 T1 上面執行，可能會發生負載嚴重不平衡的情況。另外一種方式就是將該物件複製到多個記憶體節點上，但也會延伸出我們需要同步多個物件的問題，這個方法可能適用於唯獨物件中才能夠使用。如果 N1 的記憶體控制器已經飽和 (這一點可以通過評估計算記憶體的平均存取延遲時間來探測)，則可以考慮兩種最佳化的方式。第一個是平衡多個記憶體節點上不同最熱物件的分配，達成負載平衡，但是如果這樣的飽和情況是因為幾個大物件所引起的，則可可以將某一個這個 class 所分配的物件交錯分配在不同節點上，這樣優化可能可以降低記憶體存取延遲，或是盡可能的保持低延遲&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="在-numa-架構下的應用程式主要會與性能相關的物件以及行為"&gt;在 NUMA 架構下的應用程式，主要會與性能相關的物件以及行為
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;全域靜態分配的物件&lt;/li&gt;
+&lt;li&gt;動態分配的物件&lt;/li&gt;
+&lt;li&gt;記憶體映射物件&lt;/li&gt;
+&lt;li&gt;作業系統映射的二進位檔案的部份，如某一些 binary 或是動態函式庫&lt;/li&gt;
+&lt;li&gt;thread 的 stacks&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id="object-lifecycle-tacking"&gt;Object lifecycle tacking
+&lt;/h3&gt;&lt;p&gt;關於物件和 thread 的生命週期以及記憶體存取的追蹤方式，為 overload 記憶體相關分配函式，如 (&lt;code&gt;malloc&lt;/code&gt;, &lt;code&gt;calloc&lt;/code&gt;, &lt;code&gt;realloc&lt;/code&gt;, &lt;code&gt;free&lt;/code&gt;, &lt;code&gt;mmap&lt;/code&gt;, &lt;code&gt;mummap&lt;/code&gt;) 等等函式，如此就可以進行動態追蹤，具體的實做方式是通過 &lt;code&gt;LD_PRELOAD&lt;/code&gt; 以及 dlsym 將要分析的應用程式與 MemProf 提供的 share library 連接所執行。&lt;/p&gt;
+&lt;p&gt;對於 code sections 以及 global static variables 的生命週期追蹤，MemProf 實做的方式是通過 kernel module 進行處理，這個 kernel module 會 overload &lt;code&gt;perf_event_mmap&lt;/code&gt; 這個函式，之所以選擇 overload 這個函式，是因為每一次 process 建立的時候，當 binary 或是 library 要映射到該 process 的記憶體空間時都會呼叫此函式。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;做 profiling 時，可以使用 kernel module 搭配 &lt;code&gt;perf_event&lt;/code&gt; 系列的 API 去得到一些資訊&lt;/p&gt;&lt;/blockquote&gt;
+&lt;h3 id="amd-ibs-採樣"&gt;AMD IBS 採樣
+&lt;/h3&gt;&lt;h3 id="關於-overhead"&gt;關於 overhead
+&lt;/h3&gt;&lt;p&gt;主要開銷來自於 IBS 採樣頻率，對於採樣等等，需要去測量需要多少週期&lt;/p&gt;
+&lt;p&gt;另外一個開銷來自於 trace user lib 和 kernel module trace 所帶來的開銷，攔截 user lib 並處理需要大約 400 的 clock，需要計算儲存這一些事件需要多大的緩衝區。&lt;/p&gt;
+&lt;h3 id="關於-numa-profile-的相關工具"&gt;關於 NUMA Profile 的相關工具
+&lt;/h3&gt;&lt;p&gt;Memphis: NUMA 效能問題分析器，依賴於 IBS，主要找遠端存取的記憶體
+VTune: 使用 PEBS，主要找遠端存取的記憶體地址
+Dprof: 找到不良快取行為的物件
+Oprofile 和 Perf: 使用 performance counter 去定位遠端存取的函式或是 asm code.&lt;/p&gt;
+&lt;p&gt;Linux Kernel 裡面改進 NUMA 效能的 API 包含 cpusets 可以讓應用程式強制執行全域記憶體的策略，概念上就是強制硬程式在一有限的節點集合中分配記憶體，或是前面提到的 &lt;code&gt;move_pages&lt;/code&gt; 可以用來做物件的遷移等等。&lt;/p&gt;
+&lt;p&gt;在考慮記憶體遷移問題時，最好也順便遷移他的 working set。&lt;/p&gt;
+&lt;h3 id="論文結論"&gt;論文結論:
+&lt;/h3&gt;&lt;p&gt;NUMA 架構底下，應用程式中遠端存取記憶體會有大量的開銷，MemProf 可以在上面所敘述的 workload 底下表現良好，MemProf 的限制為很依賴於程式設計師對於問題的判定能力以及 MemProf 主要適合應用在 cache 效率低且大量記憶體存取的應用程式&lt;/p&gt;
+&lt;p&gt;為什麼這一些 workload 足夠有代表性，這一篇論文在方法論上面有什麼創新? benchmark 是怎麼做的? 稍微掃過一次他的實作，感覺裡面有很多目前 eBPF 實作上使用到的技術&lt;/p&gt;</description></item></channel></rss>
